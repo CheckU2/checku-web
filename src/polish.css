@@ -1,0 +1,55 @@
+/* CheckU design system: quiet surfaces, deliberate motion, accessible contrast */
+:root{--ink:#142a3d;--muted:#637585;--line:#e6eceb;--panel:#fff;--primary:#2c987c;--primary-dark:#1d7862;--primary-soft:#e9f6f0;--shadow:0 3px 16px rgba(16,41,44,.035);font-family:Inter,"DM Sans",system-ui,sans-serif}
+body{background:#f6f8f8;color:var(--ink)}
+.sidebar{background:#fcfdfd;width:248px;flex-basis:248px;padding:26px 15px 20px}
+.brand{font-size:23px;letter-spacing:-.9px;padding-left:8px}
+.brand-mark{background:#172f3a;border-radius:12px;box-shadow:none}
+.main-nav{gap:3px;margin-top:29px;padding-right:3px;scrollbar-width:thin}
+.nav-link{border-radius:10px;padding:10px 13px;font-size:13px;font-weight:600;transition:background-color .2s ease,color .2s ease,transform .2s ease}
+.nav-link:hover{transform:translateX(3px);background:#f0f5f3;color:#186f5b}
+.nav-link-active{background:#e9f4ef;color:#166b56}
+.topbar{background:rgba(255,255,255,.9);min-height:76px;backdrop-filter:blur(12px)}
+.topbar-divider{color:#b8c4c6;margin:0 8px}
+.page-content{padding:34px clamp(18px,3vw,48px);max-width:1480px}
+.page{gap:23px;animation:page-enter .38s cubic-bezier(.2,.8,.2,1) both}
+.page-heading{align-items:center}
+.page-heading h1{font-size:clamp(25px,2.3vw,33px);letter-spacing:-1.1px}
+.eyebrow{color:#318a73;letter-spacing:1.6px}
+.panel{border-radius:17px;padding:24px;box-shadow:var(--shadow)}
+.metric-card{border-radius:15px;transition:transform .25s ease,box-shadow .25s ease}
+.metric-card:hover,.checku-class-card:hover{transform:translateY(-3px);box-shadow:0 12px 26px rgba(20,54,56,.08)}
+.checku-class-card{transition:transform .25s ease,box-shadow .25s ease,border-color .25s ease}
+.button{border-radius:10px;transition:transform .2s ease,background-color .2s ease,box-shadow .2s ease}
+.button:not(:disabled):active{transform:scale(.98)}
+.button-primary{background:#278e73}
+.button-primary:hover:not(:disabled){background:#1d765f;box-shadow:0 6px 16px rgba(32,130,101,.17)}
+.checku-modal-backdrop{backdrop-filter:blur(4px);animation:fade-in .18s ease both}
+.checku-modal{animation:modal-enter .24s cubic-bezier(.2,.8,.2,1) both}
+.quick-links{display:grid;grid-template-columns:repeat(auto-fit,minmax(195px,1fr));gap:12px}
+.quick-link{display:flex;flex-direction:column;justify-content:space-between;gap:12px;min-height:102px;border:1px solid var(--line);border-radius:13px;padding:17px;color:var(--ink);font-weight:750;background:linear-gradient(135deg,#fff,#f9fcfa);transition:transform .22s ease,border-color .22s ease,box-shadow .22s ease}
+.quick-link:hover{text-decoration:none;transform:translateY(-3px);border-color:#9bceba;box-shadow:0 8px 22px rgba(23,71,60,.07)}
+.quick-link span{font-size:12px;font-weight:500;color:var(--muted)}
+.role-tabs{display:flex;gap:5px;flex-wrap:wrap;background:#f4f7f6;padding:4px;border-radius:11px}
+.role-tab{border:0;border-radius:8px;padding:8px 12px;background:transparent;color:#637585;font-size:12px;font-weight:700;cursor:pointer}
+.role-tab.selected{background:#fff;color:#1e8067;box-shadow:0 1px 5px #dce7e3}
+.people-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px}
+.person-tile{display:flex;align-items:center;gap:12px;padding:14px;border:1px solid var(--line);border-radius:12px;min-width:0}
+.person-tile strong{font-size:13px}.person-tile p{margin:4px 0 0;overflow-wrap:anywhere}
+.person-avatar{display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;border-radius:50%;background:#e3f1eb;color:#25755f;font-weight:800;overflow:hidden}
+.person-avatar img{width:100%;height:100%;object-fit:cover}
+.checku-person-profile{display:flex;align-items:center;gap:12px}
+.pagination{display:flex;align-items:center;justify-content:flex-end;gap:14px;margin-top:18px;font-size:12px;color:var(--muted)}
+.request-list{display:grid;gap:10px}.request-card{display:flex;align-items:center;gap:14px;width:100%;border:1px solid var(--line);border-radius:13px;background:#fff;text-align:left;padding:15px;cursor:pointer;transition:background-color .2s ease,transform .2s ease}
+.request-card:hover{background:#f8fbfa;transform:translateY(-2px)}
+.request-card-body{flex:1;min-width:0;display:grid;gap:5px}.request-card-body strong{font-size:14px}.request-card-body span{font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.request-card-body small{font-size:11px;color:#81909a}
+.request-indicator{width:9px;height:9px;flex:0 0 9px;border-radius:50%;background:#94a3b8}.request-indicator.is-pending{background:#e3a442}.request-indicator.is-approved{background:#29a178}
+.message-thread{display:grid;gap:10px;margin:20px 0;max-height:220px;overflow:auto}.message-bubble{border:1px solid var(--line);background:#f8faf9;border-radius:12px;padding:12px}.message-bubble strong{font-size:12px}.message-bubble p{margin:7px 0;font-size:13px}.message-bubble small{font-size:10px;color:var(--muted)}
+.resolution-box{display:grid;gap:12px;margin-top:20px;border-top:1px solid var(--line);padding-top:20px}
+.menu-bars{display:block;width:18px;height:14px;border-top:2px solid currentColor;border-bottom:2px solid currentColor;position:relative}.menu-bars:after{content:"";position:absolute;top:5px;left:0;width:100%;border-top:2px solid currentColor}
+@keyframes page-enter{from{opacity:0;transform:translateY(9px)}to{opacity:1;transform:translateY(0)}}
+@keyframes modal-enter{from{opacity:0;transform:translateY(12px) scale(.985)}to{opacity:1;transform:translateY(0) scale(1)}}
+@keyframes fade-in{from{opacity:0}to{opacity:1}}
+@media(max-width:720px){.page-content{padding:19px 14px}.panel{padding:17px}.role-tabs{width:100%}.panel-heading{flex-wrap:wrap}.request-card{align-items:flex-start}.quick-links{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(prefers-reduced-motion:reduce){*,*:before,*:after{animation-duration:.01ms!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}
+
+.session-status{display:inline-flex;align-items:center;gap:8px}.session-indicator{width:7px;height:7px;border-radius:50%;background:#94a3b8}.session-active .session-indicator{background:#1a9b6f;box-shadow:0 0 0 3px #e1f5eb;animation:status-pulse 1.8s ease-in-out infinite}@keyframes status-pulse{50%{opacity:.35;box-shadow:0 0 0 6px #e1f5eb}}@media(prefers-reduced-motion:reduce){.session-active .session-indicator{animation:none}}

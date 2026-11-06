@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { apiRequest } from "../api/http";
 import { useAuth } from "../auth/AuthContext";
 import Feedback from "../components/Feedback";
+import UserAvatar from "../components/UserAvatar";
 
 export default function AccountPage() {
   const { user, refreshUser, signOut } = useAuth();
@@ -62,7 +63,7 @@ export default function AccountPage() {
       <div className="page-heading"><div><p className="eyebrow">CONFIGURACIÓN PERSONAL</p><h1>Mi cuenta</h1><p className="muted">Actualiza tus datos y protege el acceso a tu cuenta.</p></div></div>
       <section className="panel checku-profile-card">
         <div className="checku-profile-banner" style={{backgroundColor: user?.banner_color ?? "#63B89F"}} />
-        <div className="checku-profile-summary"><div className="checku-profile-avatar">{user?.avatar ? <img src={user.avatar} alt="Foto de perfil" /> : <span>{(user?.full_name ?? "C")[0]}</span>}</div><h2>{user?.full_name ?? "Mi perfil"}</h2><span className="pill">{roleNames[user?.role ?? ""] ?? "Usuario"}</span><p>{user?.bio || "Puedes agregar una descripción sobre ti."}</p><p className="muted">{user?.email}</p><button className="button button-primary" onClick={() => setEditing(true)}>Editar perfil</button></div>
+        <div className="checku-profile-summary"><div className="checku-profile-avatar"><UserAvatar name={user?.full_name??"Usuario"} avatar={user?.avatar} size={82}/></div><h2>{user?.full_name ?? "Mi perfil"}</h2><span className="pill">{roleNames[user?.role ?? ""] ?? "Usuario"}</span><p>{user?.bio || "Puedes agregar una descripción sobre ti."}</p><p className="muted">{user?.email}</p><button className="button button-primary" onClick={() => setEditing(true)}>Editar perfil</button></div>
         {editing && <div className="checku-modal-backdrop" onMouseDown={e => {if(e.target===e.currentTarget)setEditing(false)}}><div className="panel checku-modal" role="dialog" aria-modal="true" aria-label="Editar perfil">
         <div className="panel-heading"><h2>Editar perfil</h2><button className="button button-ghost" onClick={() => setEditing(false)} aria-label="Cerrar">Cerrar</button></div>
         

@@ -2,53 +2,28 @@ import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { apiRequest } from "../api/http";
 import { useAuth } from "../auth/AuthContext";
 import Feedback from "../components/Feedback";
-import type { ApiEnvelope } from "../types/api";
 
-interface Justification extends Record<string, unknown> { id?: string; _id?: string; student_id?: string; session_id?: string; reason?: string; status?: string; created_at?: string; }
-const label = (value: unknown) => value === null || value === undefined || value === "" ? "—" : String(value);
-export default function JustificationsPage() {
-  const { user } = useAuth();
-  const [items, setItems] = useState<Justification[]>([]);
-  const [sessionId, setSessionId] = useState("");
-  const [reason, setReason] = useState("");
-  const [resolutionReason, setResolutionReason] = useState<Record<string, string>>({});
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
-  const canResolve = ["teacher", "career_admin", "admin", "super_admin"].includes(user?.role ?? "");
-  const canCreate = user?.role === "tutor";
-
-  const load = useCallback(async () => {
-    setLoading(true); setError("");
-    try { const response = await apiRequest<ApiEnvelope<Justification[]>>("/api/v1/justifications?limit=100"); setItems(Array.isArray(response.data) ? response.data : []); }
-    catch (err) { setError(err instanceof Error ? err.message : "No se pudieron cargar los justificantes."); }
-    finally { setLoading(false); }
-  }, []);
-  useEffect(() => { void load(); }, [load]);
-
-  async function create(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault(); setError(""); setSuccess(""); setSaving(true);
-    try { await apiRequest("/api/v1/justifications", { method: "POST", body: JSON.stringify({ session_id: sessionId.trim(), reason: reason.trim() }) }); setSuccess("Solicitud de justificación enviada."); setSessionId(""); setReason(""); await load(); }
-    catch (err) { setError(err instanceof Error ? err.message : "No se pudo enviar la solicitud."); }
-    finally { setSaving(false); }
-  }
-
-  async function resolve(item: Justification, action: "approve" | "reject") {
-    const id = String(item.id ?? item._id ?? "");
-    if (!id) return;
-    const comment = resolutionReason[id] ?? "";
-    if (action === "reject" && comment.trim().length < 5) { setError("Para rechazar, escribe un motivo de al menos 5 caracteres."); return; }
-    setError(""); setSuccess("");
-    try { await apiRequest(`/api/v1/justifications/${id}/${action}`, { method: "POST", body: JSON.stringify({ reason: comment }) }); setSuccess(action === "approve" ? "Justificante aprobado." : "Justificante rechazado."); await load(); }
-    catch (err) { setError(err instanceof Error ? err.message : "No se pudo resolver el justificante."); }
-  }
-
-  return <div className="page"><div className="page-heading"><div><p className="eyebrow">SOLICITUDES</p><h1>Justificantes</h1><p className="muted">Consulta, envía y resuelve solicitudes de justificación de faltas.</p></div><button className="button button-secondary" onClick={() => void load()} disabled={loading}>{loading ? "Actualizando…" : "Actualizar"}</button></div>
-    <Feedback error={error} success={success} />
-    {canCreate && <section className="panel"><h2>Enviar justificante</h2><p className="muted small-text">Necesitas el identificador de una sesión válida y explicar el motivo.</p><form className="resource-form" onSubmit={create}><label className="field"><span>ID de sesión *</span><input value={sessionId} onChange={(e) => setSessionId(e.target.value)} required /></label><label className="field field-wide"><span>Motivo *</span><textarea value={reason} onChange={(e) => setReason(e.target.value)} minLength={5} maxLength={2000} rows={3} required /></label><div className="form-actions field-wide"><button className="button button-primary" disabled={saving}>{saving ? "Enviando…" : "Enviar solicitud"}</button></div></form></section>}
-    <section className="panel"><div className="panel-heading"><div><h2>Solicitudes</h2><p className="muted small-text">{items.length} resultados recientes</p></div></div>
-      {loading ? <div className="empty-state">Cargando solicitudes…</div> : items.length === 0 ? <div className="empty-state">No hay justificantes disponibles.</div> : <div className="table-wrap"><table><thead><tr><th>Alumno</th><th>Sesión</th><th>Motivo</th><th>Estado</th><th>Fecha</th>{canResolve && <th>Resolución</th>}</tr></thead><tbody>{items.map((item, index) => { const id = String(item.id ?? item._id ?? index); const pending = item.status === "pending" || item.status === "needs_information"; return <tr key={id}><td>{label(item.student_id)}</td><td>{label(item.session_id)}</td><td className="reason-cell">{label(item.reason)}</td><td><span className={`status ${item.status === "approved" ? "status-active" : item.status === "rejected" ? "status-inactive" : "status-neutral"}`}>{label(item.status)}</span></td><td>{item.created_at ? new Date(String(item.created_at)).toLocaleDateString() : "—"}</td>{canResolve && <td>{pending ? <div className="resolve-controls"><input aria-label="Comentario de resolución" placeholder="Motivo si rechazas" value={resolutionReason[id] ?? ""} onChange={(e) => setResolutionReason((old) => ({ ...old, [id]: e.target.value }))} /><div className="table-actions"><button className="button button-primary button-small" onClick={() => void resolve(item, "approve")}>Aprobar</button><button className="button button-danger-ghost button-small" onClick={() => void resolve(item, "reject")}>Rechazar</button></div></div> : "Resuelto"}</td>}</tr>; })}</tbody></table></div>}
-    </section>
-  </div>;
+type Student = {id:string;name:string};
+type Option = {id:string;label:string;teacher_name?:string;students:Student[]};
+type Message = {id:string;author_role:string;message:string;created_at:string};
+type Item = {id:string;student_name?:string;student_id?:string;session_id:string;reason:string;status:string;created_at:string;messages?:Message[];resolution_comment?:string;attendance_status?:string};
+const stateLabel:Record<string,string>={pending:"Pendiente",needs_information:"En revisión",approved:"Aprobada",rejected:"Rechazada",cancelled:"Cancelada"};
+export default function JustificationsPage(){
+ const {user}=useAuth();const tutor=user?.role==='tutor';const teacher=user?.role==='teacher';
+ const [items,setItems]=useState<Item[]>([]);const [options,setOptions]=useState<Option[]>([]);
+ const [session,setSession]=useState('');const [student,setStudent]=useState('');const [reason,setReason]=useState('');
+ const [selected,setSelected]=useState<string|null>(null);const [comment,setComment]=useState('');const [decision,setDecision]=useState<'excused'|'present'>('excused');
+ const [message,setMessage]=useState('');const [busy,setBusy]=useState(false);const [error,setError]=useState('');const [success,setSuccess]=useState('');
+ const load=useCallback(async()=>{try{const r=await apiRequest<{data:Item[]}>('/api/v1/justifications?limit=100');setItems(r.data??[])}catch(e){setError(e instanceof Error?e.message:'Error al consultar solicitudes')}},[]);
+ useEffect(()=>{void load();if(tutor){void apiRequest<{data:{sessions:Option[]}}>('/api/v1/justifications/options').then(r=>setOptions(r.data.sessions??[])).catch(e=>setError(e instanceof Error?e.message:'Error al consultar sesiones'))}},[load,tutor]);
+ const current=items.find(x=>x.id===selected);const selectedSession=options.find(x=>x.id===session);
+ async function create(e:FormEvent){e.preventDefault();setBusy(true);setError('');setSuccess('');try{await apiRequest('/api/v1/justifications',{method:'POST',body:JSON.stringify({session_id:session,student_id:student,reason})});setSuccess('Solicitud enviada al docente');setSession('');setStudent('');setReason('');await load()}catch(e){setError(e instanceof Error?e.message:'No se pudo enviar')}finally{setBusy(false)}}
+ async function resolve(action:'approve'|'reject'){if(!current)return;setBusy(true);setError('');try{await apiRequest(`/api/v1/justifications/${current.id}/${action}`,{method:'POST',body:JSON.stringify({reason:comment,attendance_status:decision})});setSuccess(action==='approve'?'Solicitud aprobada':'Solicitud rechazada');setSelected(null);setComment('');await load()}catch(e){setError(e instanceof Error?e.message:'No se pudo resolver')}finally{setBusy(false)}}
+ async function sendMessage(e:FormEvent){e.preventDefault();if(!current)return;setBusy(true);setError('');try{await apiRequest(`/api/v1/justifications/${current.id}/messages`,{method:'POST',body:JSON.stringify({message})});setMessage('');setSuccess('Mensaje enviado');await load()}catch(e){setError(e instanceof Error?e.message:'No se pudo enviar el mensaje')}finally{setBusy(false)}}
+ return <div className="page"><div className="page-heading"><div><p className="eyebrow">COMUNICACIÓN ACADÉMICA</p><h1>{tutor?'Mensajes y solicitudes':teacher?'Avisos y justificantes':'Justificantes'}</h1><p className="muted">{tutor?'Solicita una justificación para un alumno de tus clases asignadas.':'Revisa las solicitudes, responde y decide el estado de asistencia.'}</p></div><button className="button button-secondary" onClick={()=>void load()}>Actualizar</button></div><Feedback error={error} success={success}/>
+ {tutor&&<section className="panel"><h2>Nueva solicitud</h2><form className="resource-form" onSubmit={create}><label className="field"><span>Sesión y docente</span><select required value={session} onChange={e=>{setSession(e.target.value);setStudent('')}}><option value="">Selecciona una sesión</option>{options.map(o=><option key={o.id} value={o.id}>{o.label} · {o.teacher_name}</option>)}</select></label><label className="field"><span>Alumno</span><select required value={student} onChange={e=>setStudent(e.target.value)} disabled={!selectedSession}><option value="">Selecciona al alumno</option>{selectedSession?.students.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select></label><label className="field field-wide"><span>Motivo</span><textarea required minLength={5} maxLength={2000} rows={3} value={reason} onChange={e=>setReason(e.target.value)} placeholder="Describe la situación que requiere justificación"/></label><div className="form-actions field-wide"><button className="button button-primary" disabled={busy}>Enviar al docente</button></div></form></section>}
+ <section className="panel"><div className="panel-heading"><h2>{teacher?'Bandeja de avisos':'Solicitudes recientes'}</h2><span className="pill">{items.filter(x=>x.status==='pending').length} pendientes</span></div><div className="request-list">{items.map(item=><button className="request-card" key={item.id} onClick={()=>{setSelected(item.id);setComment('')}}><span className={`request-indicator ${item.status==='pending'?'is-pending':item.status==='approved'?'is-approved':'is-closed'}`}/><span className="request-card-body"><strong>{item.student_name||'Alumno'}</strong><span>{item.reason}</span><small>{new Date(item.created_at).toLocaleString('es-MX')}</small></span><span className="pill">{stateLabel[item.status]||item.status}</span></button>)}{items.length===0&&<div className="empty-state">Todavía no hay solicitudes.</div>}</div></section>
+ {current&&<div className="checku-modal-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget)setSelected(null)}}><section className="panel checku-modal" role="dialog" aria-modal="true" aria-label="Detalle de justificante"><div className="panel-heading"><div><p className="eyebrow">SOLICITUD</p><h2>{current.student_name||'Alumno'}</h2></div><button className="button button-ghost" onClick={()=>setSelected(null)}>Cerrar</button></div><p>{current.reason}</p><span className="pill">{stateLabel[current.status]||current.status}</span><div className="message-thread">{current.messages?.map(m=><div className="message-bubble" key={m.id}><strong>{m.author_role==='teacher'?'Docente':'Tutor'}</strong><p>{m.message}</p><small>{new Date(m.created_at).toLocaleString('es-MX')}</small></div>)}{!current.messages?.length&&<p className="muted small-text">Sin respuestas todavía.</p>}</div><form className="form-stack" onSubmit={sendMessage}><label className="field"><span>Responder</span><textarea required maxLength={4000} rows={2} value={message} onChange={e=>setMessage(e.target.value)}/></label><button className="button button-secondary" disabled={busy}>Enviar mensaje</button></form>
+ {!tutor&&['pending','needs_information'].includes(current.status)&&<div className="resolution-box"><h3>Resolver justificante</h3><label className="field"><span>Resultado</span><select value={decision} onChange={e=>setDecision(e.target.value as 'excused'|'present')}><option value="excused">Justificada</option><option value="present">Presente (solo si se verificó asistencia)</option></select></label><label className="field"><span>Comentario de resolución</span><textarea value={comment} onChange={e=>setComment(e.target.value)} rows={2}/></label><div className="table-actions"><button className="button button-primary" disabled={busy} onClick={()=>void resolve('approve')}>Aprobar</button><button className="button button-danger-ghost" disabled={busy||comment.trim().length<5} onClick={()=>void resolve('reject')}>Rechazar</button></div></div>}
+ </section></div>}</div>
 }

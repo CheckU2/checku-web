@@ -16,7 +16,7 @@ import JustificationsPage from "./pages/JustificationsPage";
 import ReportsPage from "./pages/ReportsPage";
 import AuditLogsPage from "./pages/AuditLogsPage";
 import ClassesPage from "./pages/ClassesPage";
-import ProximityPage from "./pages/ProximityPage";
+import CareerPage from "./pages/CareerPage";
 
 function HomeRedirect() {
   const { token, user, loading } = useAuth();
@@ -29,6 +29,14 @@ function NotFoundPage() {
   return <main className="auth-page"><section className="auth-card"><div className="brand brand-centered"><span className="brand-mark">C</span><span>CheckU</span></div><h1>Página no encontrada</h1><p className="muted">No existe una página para <code>{location.pathname}</code>.</p><a className="button button-primary button-link" href="/">Volver al inicio</a></section></main>;
 }
 
+function StudentOnly({ children }: { children: React.ReactNode }) {
+  const { user } = useAuth();
+  return user?.role === "student" ? <>{children}</> : <Navigate to="/dashboard" replace />;
+}
+function CareerOnly({ children }: { children: React.ReactNode }) {
+  const { user } = useAuth();
+  return user?.role === "career_admin" ? <>{children}</> : <Navigate to="/dashboard" replace />;
+}
 function AdminOnly({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
   return user?.role === "admin" || user?.role === "super_admin" ? <>{children}</> : <div className="page"><h1>Acceso denegado</h1><p>No tienes permiso para entrar a este módulo.</p></div>;
@@ -49,11 +57,11 @@ export default function App() {
       <Route path="/users" element={<AdminOnly><UsersPage /></AdminOnly>} />
       <Route path="/classes" element={<ClassesPage />} />
       <Route path="/sessions" element={<SessionsPage />} />
-      <Route path="/attendance" element={<AttendancePage />} />
+      <Route path="/attendance" element={<StudentOnly><AttendancePage /></StudentOnly>} />
       <Route path="/justifications" element={<JustificationsPage />} />
       <Route path="/reports" element={<ReportsPage />} />
       <Route path="/audit-logs" element={<AdminOnly><AuditLogsPage /></AdminOnly>} />
-      <Route path="/proximity" element={<ProximityPage />} />
+      <Route path="/career" element={<CareerOnly><CareerPage /></CareerOnly>} />
       {resourceRoutes.map((resource) => <Route key={resource} path={`/${resource}`} element={resource === "careers" ? <AdminOnly><ResourcePage resource={resource} /></AdminOnly> : <ResourcePage resource={resource} />} />)}
     </Route></Route>
     <Route path="*" element={<NotFoundPage />} />
