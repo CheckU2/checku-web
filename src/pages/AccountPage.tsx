@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useId, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { apiRequest } from "../api/http";
 import { useAuth } from "../auth/AuthContext";
@@ -7,6 +7,8 @@ import UserAvatar from "../components/UserAvatar";
 
 export default function AccountPage() {
   const { user, refreshUser, signOut } = useAuth();
+  const photoInputId = useId();
+  const [selectedFileName, setSelectedFileName] = useState("");
   const navigate = useNavigate();
   const [fullName, setFullName] = useState(user?.full_name ?? "");
   const [editing, setEditing] = useState(false);
@@ -26,9 +28,11 @@ export default function AccountPage() {
   async function onImage(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     if (!file) return;
+    setProfileError("");
     if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type) || file.size > 250000) {
       setProfileError('Selecciona una imagen PNG, JPG o WEBP de menos de 250 KB.'); return;
     }
+    setSelectedFileName(file.name);
     const reader = new FileReader();
     reader.onload = () => setAvatar(typeof reader.result === 'string' ? reader.result : null);
     reader.readAsDataURL(file);
@@ -71,7 +75,7 @@ export default function AccountPage() {
         <Feedback error={profileError} success={profileSuccess} />
         <form className="form-stack account-form" onSubmit={updateProfile}>
           <label className="field"><span>Color sólido de portada</span><input type="color" value={bannerColor} onChange={e => setBannerColor(e.target.value)} /></label>
-          <div className="profile-picture">{avatar ? <img src={avatar} alt="Mi foto de perfil" /> : <div className="profile-initial">{(user?.full_name ?? 'C')[0]}</div>}<label className="field"><span>Foto de perfil (máximo 250 KB)</span><input type="file" accept="image/png,image/jpeg,image/webp" onChange={e => void onImage(e)} /></label>{avatar && <button type="button" className="button button-secondary button-small" onClick={() => setAvatar(null)}>Quitar foto</button>}</div>
+          <div className="profile-picture">{avatar ? <img src={avatar} alt="Mi foto de perfil" /> : <div className="profile-initial">{(user?.full_name ?? 'C')[0]}</div>}<div className="field"><span>Foto de perfil</span><input id={photoInputId} className="checku-file-input" type="file" accept="image/png,image/jpeg,image/webp" onChange={e => void onImage(e)} /><label htmlFor={photoInputId} className="checku-file-label">📷 Elegir fotografía</label><small className="checku-file-hint">{selectedFileName || "PNG, JPG o WEBP · máximo 250 KB"}</small></div>{avatar && <button type="button" className="button button-secondary button-small" onClick={() => setAvatar(null)}>Quitar foto</button>}</div>
           <label className="field"><span>Nombre completo</span><input value={fullName} onChange={(event) => setFullName(event.target.value)} minLength={2} maxLength={120} required /></label>
           <label className="field"><span>Acerca de mí</span><textarea value={bio} onChange={e => setBio(e.target.value)} maxLength={400} rows={3} placeholder="Una breve presentación…" /></label>
           <div><button className="button button-primary" type="submit" disabled={savingProfile}>{savingProfile ? "Guardando…" : "Guardar perfil"}</button></div>

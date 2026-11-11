@@ -40,6 +40,7 @@ export interface AuthTokens {
 
 export interface LoginResponse extends ApiEnvelope<AuthTokens & { user: AuthUser }> {}
 export interface RegisterPayload {
+  role: "student" | "teacher";
   full_name: string;
   email: string;
   password: string;

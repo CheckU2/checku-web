@@ -5,6 +5,7 @@ import App from "./App";
 import { AuthProvider } from "./auth/AuthContext";
 import "./index.css";
 import "./polish.css";
+import "./checku-redesign.css";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

@@ -11,7 +11,7 @@ body{background:#f6f8f8;color:var(--ink)}
 .topbar{background:rgba(255,255,255,.9);min-height:76px;backdrop-filter:blur(12px)}
 .topbar-divider{color:#b8c4c6;margin:0 8px}
 .page-content{padding:34px clamp(18px,3vw,48px);max-width:1480px}
-.page{gap:23px;animation:page-enter .38s cubic-bezier(.2,.8,.2,1) both}
+.page{gap:23px;animation:page-enter .38s ease}
 .page-heading{align-items:center}
 .page-heading h1{font-size:clamp(25px,2.3vw,33px);letter-spacing:-1.1px}
 .eyebrow{color:#318a73;letter-spacing:1.6px}
@@ -53,3 +53,5 @@ body{background:#f6f8f8;color:var(--ink)}
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{animation-duration:.01ms!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}
 
 .session-status{display:inline-flex;align-items:center;gap:8px}.session-indicator{width:7px;height:7px;border-radius:50%;background:#94a3b8}.session-active .session-indicator{background:#1a9b6f;box-shadow:0 0 0 3px #e1f5eb;animation:status-pulse 1.8s ease-in-out infinite}@keyframes status-pulse{50%{opacity:.35;box-shadow:0 0 0 6px #e1f5eb}}@media(prefers-reduced-motion:reduce){.session-active .session-indicator{animation:none}}
+/* Full-viewport dialogs: do not create a containing block on .page */
+@keyframes page-enter{from{opacity:0}to{opacity:1}}

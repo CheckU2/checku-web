@@ -94,7 +94,7 @@ export default function ResourcePage({ resource }: ResourcePageProps) {
   useEffect(() => {
     if (!config) return;
     let cancelled = false;
-    const names = [...new Set(config.fields.filter((field) => !(resource === "students" && field.name === "student_id")).map((field) => LOOKUP_RESOURCES[field.name]).filter(Boolean))];
+    const names = [...new Set([...config.fields.map((field) => LOOKUP_RESOURCES[field.name]), ...config.columns.map((column) => LOOKUP_RESOURCES[column.key])].filter(Boolean))];
     void Promise.all(names.map(async (name) => {
       try {
         const response = name === "users"
@@ -155,6 +155,17 @@ export default function ResourcePage({ resource }: ResourcePageProps) {
     catch (err) { setError(err instanceof Error ? err.message : "No se pudo eliminar el registro."); }
   }
 
+  function displayCell(record: ResourceRecord, key: string) {
+    const value = record[key];
+    const resourceName = LOOKUP_RESOURCES[key];
+    if (!resourceName) return readable(value);
+    if (value === null || value === undefined || value === "") return "—";
+    const related = lookups[resourceName]?.find((row) => String(row.id ?? row._id ?? "") === String(value));
+    if (related) return <span className="checku-record-label">{lookupLabel(key, related)}</span>;
+    // IDs remain untouched for API operations, but aren't exposed as user-facing labels.
+    return <span className="checku-record-unavailable" title="El nombre no está disponible en el catálogo">Nombre no disponible</span>;
+  }
+
   const pageCount = useMemo(() => Math.max(1, Math.ceil(total / 20)), [total]);
   if (!config) return <div className="page"><h1>Módulo no encontrado</h1><p>La ruta no tiene una configuración válida.</p></div>;
 
@@ -173,7 +184,7 @@ export default function ResourcePage({ resource }: ResourcePageProps) {
     </section>}
 
     <section className="panel"><div className="panel-heading"><div><h2>Registros</h2><p className="muted small-text">{total} en total</p></div><span className="pill">Página {page} de {pageCount}</span></div>
-      {loading ? <div className="empty-state">Cargando datos…</div> : records.length === 0 ? <div className="empty-state">No hay registros para mostrar, o tu rol no tiene acceso a ellos.</div> : <div className="table-wrap"><table><thead><tr>{config.columns.map((column) => <th key={column.key}>{column.label}</th>)}{(canEdit || canDelete) && <th>Acciones</th>}</tr></thead><tbody>{records.map((record, index) => <tr key={recordId(record) ?? index}>{config.columns.map((column) => <td key={column.key}>{readable(record[column.key])}</td>)}{(canEdit || canDelete) && <td><div className="table-actions">{canEdit && <button className="button button-ghost button-small" onClick={() => beginEdit(record)}>Editar</button>}{canDelete && <button className="button button-danger-ghost button-small" onClick={() => void handleDelete(record)}>Eliminar</button>}</div></td>}</tr>)}</tbody></table></div>}
+      {loading ? <div className="empty-state">Cargando datos…</div> : records.length === 0 ? <div className="empty-state">No hay registros para mostrar, o tu rol no tiene acceso a ellos.</div> : <div className="table-wrap"><table><thead><tr>{config.columns.map((column) => <th key={column.key}>{column.label}</th>)}{(canEdit || canDelete) && <th>Acciones</th>}</tr></thead><tbody>{records.map((record, index) => <tr key={recordId(record) ?? index}>{config.columns.map((column) => <td key={column.key}>{displayCell(record, column.key)}</td>)}{(canEdit || canDelete) && <td><div className="table-actions">{canEdit && <button className="button button-ghost button-small" onClick={() => beginEdit(record)}>Editar</button>}{canDelete && <button className="button button-danger-ghost button-small" onClick={() => void handleDelete(record)}>Eliminar</button>}</div></td>}</tr>)}</tbody></table></div>}
       <div className="pagination"><button className="button button-secondary button-small" disabled={page <= 1 || loading} onClick={() => setPage((value) => Math.max(1, value - 1))}>Anterior</button><span className="muted small-text">{total ? `${(page - 1) * 20 + 1}–${Math.min(page * 20, total)} de ${total}` : "0 registros"}</span><button className="button button-secondary button-small" disabled={page >= pageCount || loading} onClick={() => setPage((value) => value + 1)}>Siguiente</button></div>
     </section>
   </div>;
