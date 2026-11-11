@@ -3,7 +3,7 @@ import { apiRequest } from "../api/http";
 import Feedback from "../components/Feedback";
 import type { ApiEnvelope } from "../types/api";
 
-interface ReportData extends Record<string, unknown> { attendance_percentage?: number | null; sessions_evaluated?: number; attendance_records?: number; active_sessions?: number; at_risk?: boolean; statuses?: Record<string, number>; pending_justifications?: number; }
+interface ReportData extends Record<string, unknown> { sessions?: number; attendance_percentage?: number | null; sessions_evaluated?: number; attendance_records?: number; active_sessions?: number; at_risk?: boolean; statuses?: Record<string, number>; pending_justifications?: number; }
 function safeJson(value: unknown) { return JSON.stringify(value, null, 2); }
 export default function ReportsPage() {
   const [dashboard, setDashboard] = useState<ReportData | null>(null);

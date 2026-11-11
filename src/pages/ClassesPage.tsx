@@ -148,10 +148,7 @@ export default function ClassesPage() {
       setSuccess("Clase actualizada."); await load();
     } catch (err) { setError(err instanceof Error ? err.message : "No se pudo actualizar la clase"); }
   }
-  function name(resource: string, value?: string) {
-    const row = catalogs[resource]?.find(item => id(item) === value || (resource === "teachers" && item.user_id === value));
-    return row ? label(resource, row) : "—";
-  }
+
   function personCard(person: ResourceRecord, role: string) { const name = String(person.full_name ?? "Sin nombre"); const avatar = typeof person.avatar_url === 'string' ? person.avatar_url : typeof person.avatar === 'string' ? person.avatar : null; return <div className="checku-person checku-person-profile" key={id(person)}><UserAvatar name={name} avatar={avatar} /><div><strong>{name}</strong><small>{role}</small>{person.bio ? <p className="muted small-text">{String(person.bio)}</p> : null}</div></div>; }
   return <div className="page">
     <div className="page-heading"><div><p className="eyebrow">GESTIÓN ACADÉMICA</p><h1>Clases</h1><p className="muted">Inscríbete con un código de 6 dígitos. El PIN de asistencia es independiente.</p></div></div>

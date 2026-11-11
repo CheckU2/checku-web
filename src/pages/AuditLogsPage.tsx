@@ -39,7 +39,6 @@ const CATALOGS: Record<string, string> = {
 };
 const text = (value: unknown): string => typeof value === "string" ? value.trim() : typeof value === "number" ? String(value) : "";
 const looksLikeId = (value: string) => /^[a-f0-9]{24}$/i.test(value);
-const identifier = (row: Row) => text(row.id ?? row._id);
 function displayName(row: Row, entity: string): string {
   const direct = [row.full_name, row.name, row.title, row.subject_name, row.group_name, row.code, row.email]
     .map(text).find(value => value && !looksLikeId(value));

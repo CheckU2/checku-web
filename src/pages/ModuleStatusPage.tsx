@@ -1,7 +1,6 @@
 
 import { useEffect, useState } from "react";
 import { apiRequest } from "../api/http";
-import { useAuth } from "../auth/AuthContext";
 
 interface Props {
   title: string;
@@ -9,7 +8,6 @@ interface Props {
 }
 
 export default function ModuleStatusPage({ title, endpoint }: Props) {
-  const { token } = useAuth();
   const [data, setData] = useState<unknown>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
@@ -21,8 +19,7 @@ export default function ModuleStatusPage({ title, endpoint }: Props) {
     try {
       const response = await apiRequest<unknown>(
         endpoint,
-        {},
-        token ?? undefined
+        {}
       );
       setData(response);
     } catch (err) {
@@ -34,7 +31,7 @@ export default function ModuleStatusPage({ title, endpoint }: Props) {
 
   useEffect(() => {
     void loadStatus();
-  }, [endpoint, token]);
+  }, [endpoint]);
 
   return (
     <main>
