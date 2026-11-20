@@ -86,10 +86,11 @@ async function refreshAccessToken(): Promise<string | null> {
 export interface RequestOptions extends RequestInit {
   auth?: boolean;
   retryOnUnauthorized?: boolean;
+  responseType?: "blob";
 }
 
 export async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
-  const { auth = true, retryOnUnauthorized = true, ...requestOptions } = options;
+  const { auth = true, retryOnUnauthorized = true, responseType, ...requestOptions } = options;
   const headers = new Headers(requestOptions.headers);
   headers.set("Accept", "application/json");
 
@@ -116,6 +117,7 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
     }
   }
 
+  if (response.ok && responseType === "blob") return await response.blob() as T;
   const data = await parseResponse(response);
   if (!response.ok) throw new ApiError(messageFromResponse(data, response.status), response.status, data);
   return data as T;

@@ -7,15 +7,16 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { getCurrentUser, login as loginRequest, logout as logoutRequest } from "../api/auth.api";
+import { getCurrentUser, login as loginRequest, logout as logoutRequest, selectContext as selectContextRequest } from "../api/auth.api";
 import { clearTokens, getAccessToken, getRefreshToken, saveTokens } from "../api/tokenStorage";
-import type { AuthUser } from "../types/api";
+import type { AuthContext as AuthContextOption, AuthUser } from "../types/api";
 
 interface AuthContextValue {
   user: AuthUser | null;
   token: string | null;
   loading: boolean;
-  signIn: (email: string, password: string) => Promise<void>;
+  signIn: (email: string, password: string) => Promise<AuthUser>;
+  selectContext: (context: AuthContextOption) => Promise<AuthUser>;
   signOut: () => Promise<void>;
   refreshUser: () => Promise<void>;
 }
@@ -51,7 +52,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
       try {
-        const response = await getCurrentUser();
+        let response = await getCurrentUser();
+        if (!response.data.active_context && response.data.contexts?.length === 1) {
+          const selected = await selectContextRequest(response.data.contexts[0]);
+          saveTokens(selected.data);
+          response = { ...response, data: selected.data.user };
+        }
         if (!cancelled) setUser(response.data);
       } catch {
         clearTokens();
@@ -69,6 +75,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     saveTokens(response.data);
     setToken(response.data.access_token);
     setUser(response.data.user);
+    return response.data.user;
+  }, []);
+
+  const selectContext = useCallback(async (context: AuthContextOption) => {
+    const response = await selectContextRequest(context);
+    saveTokens(response.data);
+    setToken(response.data.access_token);
+    setUser(response.data.user);
+    return response.data.user;
   }, []);
 
   const signOut = useCallback(async () => {
@@ -82,8 +97,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const value = useMemo(() => ({ user, token, loading, signIn, signOut, refreshUser }), [
-    user, token, loading, signIn, signOut, refreshUser,
+  const value = useMemo(() => ({ user, token, loading, signIn, selectContext, signOut, refreshUser }), [
+    user, token, loading, signIn, selectContext, signOut, refreshUser,
   ]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
