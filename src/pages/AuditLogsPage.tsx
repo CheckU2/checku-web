@@ -1,3 +1,4 @@
+import Skeleton from "../components/Skeleton";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { apiRequest } from "../api/http";
 import Feedback from "../components/Feedback";
@@ -141,7 +142,7 @@ export default function AuditLogsPage() {
       <Feedback error={error} />
       <section className="panel">
         <h2>Eventos recientes</h2>
-        {loading ? <div className="empty-state">Cargando auditoría…</div> : logs.length === 0 ? (
+        {loading ? <Skeleton variant="rows" /> : logs.length === 0 ? (
           <div className="empty-state">No hay eventos disponibles para tu cuenta.</div>
         ) : (
           <div className="table-wrap"><table>

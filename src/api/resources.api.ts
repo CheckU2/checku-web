@@ -20,8 +20,12 @@ export function listResource<T extends ResourceRecord = ResourceRecord>(
   resource: string,
   page = 1,
   limit = 20,
+  filters: { search?: string; career_id?: string } = {},
 ): Promise<ListResponse<T>> {
-  return apiRequest<ListResponse<T>>(`/api/v1/${resource}?page=${page}&limit=${limit}`);
+  const query = new URLSearchParams({ page: String(page), limit: String(limit) });
+  if (filters.search) query.set("search", filters.search);
+  if (filters.career_id) query.set("career_id", filters.career_id);
+  return apiRequest<ListResponse<T>>(`/api/v1/${resource}?${query}`);
 }
 
 export function createResource<T extends ResourceRecord = ResourceRecord>(

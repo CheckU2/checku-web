@@ -1,5 +1,5 @@
 import { apiRequest } from "./http";
-import type { ApiEnvelope, AuthUser, LoginResponse, RegisterPayload } from "../types/api";
+import type { ApiEnvelope, AuthContext, AuthUser, ContextSelectionResponse, LoginResponse, RegisterPayload } from "../types/api";
 
 export interface LoginPayload {
   email: string;
@@ -26,6 +26,13 @@ export function register(payload: RegisterPayload): Promise<ApiEnvelope<AuthUser
 
 export function getCurrentUser(): Promise<ApiEnvelope<AuthUser>> {
   return apiRequest<ApiEnvelope<AuthUser>>("/api/v1/auth/me");
+}
+
+export function selectContext(context: AuthContext): Promise<ContextSelectionResponse> {
+  return apiRequest<ContextSelectionResponse>("/api/v1/auth/context", {
+    method: "POST",
+    body: JSON.stringify(context),
+  });
 }
 
 export function logout(refreshToken: string | null): Promise<ApiEnvelope<{ message: string }>> {

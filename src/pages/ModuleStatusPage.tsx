@@ -1,4 +1,5 @@
 
+import Skeleton from "../components/Skeleton";
 import { useEffect, useState } from "react";
 import { apiRequest } from "../api/http";
 
@@ -42,7 +43,7 @@ export default function ModuleStatusPage({ title, endpoint }: Props) {
         Actualizar estado
       </button>
 
-      {loading && <p>Consultando API...</p>}
+      {loading && <Skeleton variant="rows" />}
       {error && <p role="alert">Error: {error}</p>}
 
       {data !== null && (

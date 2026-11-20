@@ -1,23 +1,39 @@
+import CloseButton from "../components/CloseButton";
 import { useId, useState, type FormEvent } from "react";
-import { useNavigate } from "react-router-dom";
+import { Camera, Clock3, LockKeyhole, Pencil } from "lucide-react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { apiRequest } from "../api/http";
 import { useAuth } from "../auth/AuthContext";
 import Feedback from "../components/Feedback";
 import UserAvatar from "../components/UserAvatar";
+import ProfilePhotoCrop from "../components/ProfilePhotoCrop";
 
 export default function AccountPage() {
   const { user, refreshUser, signOut } = useAuth();
   const photoInputId = useId();
   const [selectedFileName, setSelectedFileName] = useState("");
+  const [photoToCrop, setPhotoToCrop] = useState<File | null>(null);
   const navigate = useNavigate();
   const [fullName, setFullName] = useState(user?.full_name ?? "");
-  const [editing, setEditing] = useState(false);
+  const [params, setParams] = useSearchParams();
+  const editing = params.get("editar") === "1";
+  function setEditing(open: boolean) {
+    setParams(previous => {
+      const next = new URLSearchParams(previous);
+      if (open) next.set("editar", "1");
+      else next.delete("editar");
+      return next;
+    }, { replace: true });
+  }
   const [bannerColor, setBannerColor] = useState(user?.banner_color ?? "#63B89F");
   const [bio, setBio] = useState(user?.bio ?? "");
   const [avatar, setAvatar] = useState<string | null>(user?.avatar ?? null);
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmation, setConfirmation] = useState("");
+  const [timezoneName, setTimezoneName] = useState(user?.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone ?? "UTC");
+  const [timezoneBusy, setTimezoneBusy] = useState(false);
+  const [timezoneMessage, setTimezoneMessage] = useState("");
   const [profileError, setProfileError] = useState("");
   const [profileSuccess, setProfileSuccess] = useState("");
   const [passwordError, setPasswordError] = useState("");
@@ -25,17 +41,21 @@ export default function AccountPage() {
   const [savingProfile, setSavingProfile] = useState(false);
   const [savingPassword, setSavingPassword] = useState(false);
 
-  async function onImage(event: React.ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
+  function onImage(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.currentTarget.files?.[0];
+    event.currentTarget.value = "";
     if (!file) return;
     setProfileError("");
-    if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type) || file.size > 250000) {
-      setProfileError('Selecciona una imagen PNG, JPG o WEBP de menos de 250 KB.'); return;
+    if (!["image/png", "image/jpeg", "image/webp"].includes(file.type) || file.size > 20_000_000) {
+      setProfileError("Selecciona una imagen PNG, JPG o WEBP de hasta 20 MB.");
+      return;
     }
-    setSelectedFileName(file.name);
-    const reader = new FileReader();
-    reader.onload = () => setAvatar(typeof reader.result === 'string' ? reader.result : null);
-    reader.readAsDataURL(file);
+    setPhotoToCrop(file);
+  }
+
+  function closeProfileEditor() {
+    if (photoToCrop) setPhotoToCrop(null);
+    else setEditing(false);
   }
   async function updateProfile(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); setProfileError(""); setProfileSuccess(""); setSavingProfile(true);
@@ -64,26 +84,31 @@ export default function AccountPage() {
   const roleNames: Record<string, string> = {student:"Alumno",teacher:"Docente",tutor:"Tutor",career_admin:"Administrador de carrera",admin:"Administrador",super_admin:"Administrador general"};
   return (
     <div className="page">
-      <div className="page-heading"><div><p className="eyebrow">CONFIGURACIÓN PERSONAL</p><h1>Mi cuenta</h1><p className="muted">Actualiza tus datos y protege el acceso a tu cuenta.</p></div></div>
+      <header className="profile-page-heading"><h1>Mi cuenta</h1><p className="muted">Perfil, seguridad y preferencias personales.</p></header>
       <section className="panel checku-profile-card">
         <div className="checku-profile-banner" style={{backgroundColor: user?.banner_color ?? "#63B89F"}} />
-        <div className="checku-profile-summary"><div className="checku-profile-avatar"><UserAvatar name={user?.full_name??"Usuario"} avatar={user?.avatar} size={82}/></div><h2>{user?.full_name ?? "Mi perfil"}</h2><span className="pill">{roleNames[user?.role ?? ""] ?? "Usuario"}</span><p>{user?.bio || "Puedes agregar una descripción sobre ti."}</p><p className="muted">{user?.email}</p><button className="button button-primary" onClick={() => setEditing(true)}>Editar perfil</button></div>
-        {editing && <div className="checku-modal-backdrop" onMouseDown={e => {if(e.target===e.currentTarget)setEditing(false)}}><div className="panel checku-modal" role="dialog" aria-modal="true" aria-label="Editar perfil">
-        <div className="panel-heading"><h2>Editar perfil</h2><button className="button button-ghost" onClick={() => setEditing(false)} aria-label="Cerrar">Cerrar</button></div>
+        <div className="checku-profile-summary"><div className="checku-profile-avatar"><UserAvatar name={user?.full_name??"Usuario"} avatar={user?.avatar} size={82}/></div><h2>{user?.full_name ?? "Mi perfil"}</h2><span className="pill">{roleNames[user?.role ?? ""] ?? "Usuario"}</span><p>{user?.bio || "Puedes agregar una descripción sobre ti."}</p><p className="muted">{user?.email}</p><button className="button button-primary" onClick={() => setEditing(true)}><Pencil size={16} /> Editar perfil</button></div>
+        {editing && <div className="checku-modal-backdrop" onMouseDown={e => {if(e.target===e.currentTarget)closeProfileEditor()}}><div className="panel checku-modal" role="dialog" aria-modal="true" aria-labelledby="profile-editor-title">
+        <div className="panel-heading"><h2 id="profile-editor-title">{photoToCrop ? "Recortar fotografía" : "Editar perfil"}</h2><CloseButton onClick={closeProfileEditor} /></div>
         
         
         <Feedback error={profileError} success={profileSuccess} />
-        <form className="form-stack account-form" onSubmit={updateProfile}>
-          <label className="field"><span>Color sólido de portada</span><input type="color" value={bannerColor} onChange={e => setBannerColor(e.target.value)} /></label>
-          <div className="profile-picture">{avatar ? <img src={avatar} alt="Mi foto de perfil" /> : <div className="profile-initial">{(user?.full_name ?? 'C')[0]}</div>}<div className="field"><span>Foto de perfil</span><input id={photoInputId} className="checku-file-input" type="file" accept="image/png,image/jpeg,image/webp" onChange={e => void onImage(e)} /><label htmlFor={photoInputId} className="checku-file-label">📷 Elegir fotografía</label><small className="checku-file-hint">{selectedFileName || "PNG, JPG o WEBP · máximo 250 KB"}</small></div>{avatar && <button type="button" className="button button-secondary button-small" onClick={() => setAvatar(null)}>Quitar foto</button>}</div>
+        {photoToCrop ? <ProfilePhotoCrop file={photoToCrop} onCancel={() => setPhotoToCrop(null)} onApply={data => {
+          setAvatar(data);
+          setSelectedFileName(photoToCrop.name);
+          setPhotoToCrop(null);
+        }} /> : <form className="profile-editor-grid" onSubmit={updateProfile}>
+          <label className="field"><span>Color de mi espacio</span><input type="color" value={bannerColor} onChange={e => setBannerColor(e.target.value)} /></label>
+          <div className="profile-picture">{avatar ? <img src={avatar} alt="Mi foto de perfil" /> : <div className="profile-initial">{(user?.full_name ?? 'C')[0]}</div>}<div className="field"><span>Foto de perfil</span><input id={photoInputId} className="checku-file-input" type="file" accept="image/png,image/jpeg,image/webp" onChange={onImage} disabled={savingProfile} /><label htmlFor={photoInputId} className="checku-file-label"><Camera size={18} aria-hidden="true" /> Elegir fotografía</label><small className="checku-file-hint">{selectedFileName || "PNG, JPG o WEBP · máximo 20 MB"}</small></div>{avatar && <button type="button" className="button button-secondary button-small" onClick={() => { setAvatar(null); setSelectedFileName(""); }}>Quitar foto</button>}</div>
           <label className="field"><span>Nombre completo</span><input value={fullName} onChange={(event) => setFullName(event.target.value)} minLength={2} maxLength={120} required /></label>
-          <label className="field"><span>Acerca de mí</span><textarea value={bio} onChange={e => setBio(e.target.value)} maxLength={400} rows={3} placeholder="Una breve presentación…" /></label>
-          <div><button className="button button-primary" type="submit" disabled={savingProfile}>{savingProfile ? "Guardando…" : "Guardar perfil"}</button></div>
-        </form>
+          <label className="field field-wide"><span>Acerca de mí</span><textarea value={bio} onChange={e => setBio(e.target.value)} maxLength={400} rows={3} placeholder="Una breve presentación…" /></label>
+          <div className="field-wide form-actions"><button className="button button-primary" type="submit" disabled={savingProfile}>{savingProfile ? "Guardando…" : "Guardar perfil"}</button></div>
+        </form>}
         </div></div>}
       </section>
-      <section className="panel">
-        <h2>Cambiar contraseña</h2>
+      <div className="academic-split profile-preferences"><details className="panel"><summary><Clock3 size={20} /> Zona horaria</summary><p className="muted">Se utiliza para interpretar las fechas de tu actividad académica. Los registros se almacenan en UTC.</p><form className="form-stack account-form" onSubmit={async e=>{e.preventDefault();setTimezoneBusy(true);setTimezoneMessage("");try{await apiRequest("/api/v1/auth/profile",{method:"PATCH",body:JSON.stringify({timezone:timezoneName})});await refreshUser();setTimezoneMessage("Zona horaria guardada.");}catch(err){setTimezoneMessage(err instanceof Error?err.message:"No se pudo guardar la zona horaria.");}finally{setTimezoneBusy(false);}}}><label className="field"><span>Zona horaria IANA</span><input value={timezoneName} onChange={e=>setTimezoneName(e.target.value)} placeholder="America/Mexico_City" required /></label><p className="muted small-text">Ejemplos: America/Mexico_City, America/Cancun, America/Bogota.</p><button className="button button-primary" disabled={timezoneBusy}>{timezoneBusy?"Guardando…":"Guardar zona horaria"}</button>{timezoneMessage&&<p role="status">{timezoneMessage}</p>}</form></details>
+      <details className="panel">
+        <summary><LockKeyhole size={20} /> Cambiar contraseña</summary>
         <p className="muted small-text">Después de cambiarla, tendrás que iniciar sesión de nuevo.</p>
         <Feedback error={passwordError} success={passwordSuccess} />
         <form className="form-stack account-form" onSubmit={changePassword}>
@@ -92,7 +117,7 @@ export default function AccountPage() {
           <label className="field"><span>Confirmar contraseña nueva</span><input type="password" value={confirmation} onChange={(event) => setConfirmation(event.target.value)} minLength={12} maxLength={128} autoComplete="new-password" required /></label>
           <div><button className="button button-primary" type="submit" disabled={savingPassword}>{savingPassword ? "Actualizando…" : "Cambiar contraseña"}</button></div>
         </form>
-      </section>
+      </details></div>
     </div>
   );
 }

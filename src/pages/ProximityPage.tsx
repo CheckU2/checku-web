@@ -1,3 +1,4 @@
+import Skeleton from "../components/Skeleton";
 import { useState, type FormEvent } from "react";
 import { apiRequest } from "../api/http";
 import Feedback from "../components/Feedback";
@@ -83,7 +84,7 @@ export default function ProximityPage() {
             </button>
           </div>
         </form>
-        {status !== null && <pre className="json-output">{JSON.stringify(status, null, 2)}</pre>}
+        {loading ? <Skeleton count={2} label="Cargando estado de proximidad" /> : status !== null && <pre className="json-output">{JSON.stringify(status, null, 2)}</pre>}
       </section>
 
       <p className="muted small-text">

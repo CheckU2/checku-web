@@ -1,3 +1,4 @@
+import Skeleton from "../components/Skeleton";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { apiRequest } from "../api/http";
 import { useAuth } from "../auth/AuthContext";
@@ -24,6 +25,8 @@ export default function UsersPage() {
   const [careers, setCareers] = useState<ResourceRecord[]>([]);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
+  const [listRole, setListRole] = useState("");
+  const [listSearch, setListSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -45,7 +48,8 @@ export default function UsersPage() {
   async function createUser(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); setError(""); setSuccess(""); setSaving(true);
     try {
-      await apiRequest("/api/v1/users", { method: "POST", body: JSON.stringify({ full_name: fullName.trim(), email: email.trim(), password, role, ...(careerId ? { career_id: careerId } : {}), ...(["teacher", "tutor"].includes(role) ? { employee_id: employeeId.trim(), ...(role === "teacher" && department.trim() ? { department: department.trim() } : {}) } : {}) }) });
+      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+      await apiRequest("/api/v1/users", { method: "POST", body: JSON.stringify({ full_name: fullName.trim(), email: email.trim(), password, role, timezone, ...(careerId ? { career_id: careerId } : {}), ...(["teacher", "tutor"].includes(role) ? { employee_id: employeeId.trim(), ...(role === "teacher" && department.trim() ? { department: department.trim() } : {}) } : {}) }) });
       setSuccess("Usuario creado correctamente."); setFullName(""); setEmail(""); setPassword(""); setRole("student"); setEmployeeId(""); setDepartment(""); setCareerId("");
       await loadUsers();
     } catch (err) { setError(err instanceof Error ? err.message : "No se pudo crear el usuario."); }
@@ -67,6 +71,8 @@ export default function UsersPage() {
     catch (err) { setError(err instanceof Error ? err.message : "No se pudo desactivar el usuario."); }
   }
 
+  const visibleUsers = users.filter(item => (!listRole || item.role === listRole) &&
+    `${item.full_name} ${item.email}`.toLocaleLowerCase().includes(listSearch.trim().toLocaleLowerCase()));
   return <div className="page">
     <div className="page-heading"><div><p className="eyebrow">ADMINISTRACIÓN</p><h1>Usuarios</h1><p className="muted">Gestiona las cuentas y sus roles de acceso.</p></div><button className="button button-secondary" onClick={() => void loadUsers()} disabled={loading}>{loading ? "Actualizando…" : "Actualizar"}</button></div>
     <Feedback error={error} success={success} />
@@ -83,7 +89,11 @@ export default function UsersPage() {
       </form>
     </section>
     <section className="panel"><div className="panel-heading"><div><h2>Cuentas registradas</h2><p className="muted small-text">{total} usuarios en total</p></div><span className="pill">Página {page}</span></div>
-      {loading ? <div className="empty-state">Cargando usuarios…</div> : users.length === 0 ? <div className="empty-state">No hay usuarios en esta página.</div> : <div className="table-wrap"><table><thead><tr><th>Nombre</th><th>Correo</th><th>Rol</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>{users.map((item) => <tr key={item.id}><td>{item.full_name || "—"}</td><td>{item.email}</td><td>{roles.find((entry) => entry.value === item.role)?.label ?? item.role}</td><td><span className={item.is_active ? "status status-active" : "status status-inactive"}>{item.is_active ? "Activa" : "Inactiva"}</span></td><td><div className="table-actions"><button className="button button-ghost button-small" disabled={item.id === (user?.id ?? user?._id)} onClick={() => void toggleStatus(item)}>{item.is_active ? "Desactivar" : "Activar"}</button>{item.is_active && <button className="button button-danger-ghost button-small" disabled={item.id === (user?.id ?? user?._id)} onClick={() => void deactivateUser(item)}>Baja lógica</button>}</div></td></tr>)}</tbody></table></div>}
+      <div className="academic-filters">
+        <label className="field"><span>Buscar en esta página</span><input value={listSearch} onChange={event => setListSearch(event.target.value)} placeholder="Nombre o correo" /></label>
+        <label className="field"><span>Rol</span><select value={listRole} onChange={event => setListRole(event.target.value)}><option value="">Todos</option>{roles.map(item => <option key={item.value} value={item.value}>{item.label}</option>)}</select></label>
+      </div>
+      {loading ? <Skeleton variant="rows" /> : visibleUsers.length === 0 ? <div className="empty-state">No hay usuarios en esta página.</div> : <div className="table-wrap"><table><thead><tr><th>Nombre</th><th>Correo</th><th>Rol</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>{visibleUsers.map((item) => <tr key={item.id}><td>{item.full_name || "—"}</td><td>{item.email}</td><td>{roles.find((entry) => entry.value === item.role)?.label ?? item.role}</td><td><span className={item.is_active ? "status status-active" : "status status-inactive"}>{item.is_active ? "Activa" : "Inactiva"}</span></td><td><div className="table-actions"><button className="button button-ghost button-small" disabled={item.id === (user?.id ?? user?._id)} onClick={() => void toggleStatus(item)}>{item.is_active ? "Desactivar" : "Activar"}</button>{item.is_active && <button className="button button-danger-ghost button-small" disabled={item.id === (user?.id ?? user?._id)} onClick={() => void deactivateUser(item)}>Baja lógica</button>}</div></td></tr>)}</tbody></table></div>}
       <div className="pagination"><button className="button button-secondary button-small" disabled={page <= 1 || loading} onClick={() => setPage((p) => p - 1)}>Anterior</button><span className="muted small-text">Página {page}</span><button className="button button-secondary button-small" disabled={loading || page * 20 >= total} onClick={() => setPage((p) => p + 1)}>Siguiente</button></div>
     </section>
   </div>;
