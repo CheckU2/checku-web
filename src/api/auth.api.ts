@@ -1,3 +1,4 @@
+import type { VerificationTiming } from "../auth/verificationCountdown";
 import { apiRequest } from "./http";
 import type { ApiEnvelope, AuthContext, AuthUser, ContextSelectionResponse, LoginResponse, RegisterPayload } from "../types/api";
 
@@ -15,7 +16,7 @@ export function login(payload: LoginPayload): Promise<LoginResponse> {
   });
 }
 
-type RegistrationResult = AuthUser & { verification_email_sent: boolean };
+type RegistrationResult = VerificationTiming & { email: string; verification_email_sent: boolean };
 
 export function register(payload: RegisterPayload): Promise<ApiEnvelope<RegistrationResult>> {
   return apiRequest<ApiEnvelope<RegistrationResult>>("/api/v1/auth/register", {
@@ -49,7 +50,7 @@ export function getCurrentUser(): Promise<ApiEnvelope<AuthUser>> {
 }
 
 export function requestPasswordChange(currentPassword: string, newPassword: string) {
-  return apiRequest<ApiEnvelope<{ verification_required: true; message: string }>>("/api/v1/auth/change-password", {
+  return apiRequest<ApiEnvelope<VerificationTiming & { verification_required: true; message: string }>>("/api/v1/auth/change-password", {
     method: "PATCH",
     body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }),
   });
@@ -64,7 +65,7 @@ export function confirmPasswordChange(code: string) {
 }
 
 export function requestEmailChange(email: string, currentPassword: string) {
-  return apiRequest<ApiEnvelope<{ email: string; message: string }>>("/api/v1/auth/email-change", {
+  return apiRequest<ApiEnvelope<VerificationTiming & { email: string; message: string }>>("/api/v1/auth/email-change", {
     method: "POST",
     body: JSON.stringify({ email, current_password: currentPassword }),
   });

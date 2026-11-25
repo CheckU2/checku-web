@@ -1,3 +1,4 @@
+import PasswordField from "../components/PasswordField";
 import { SessionSkeleton } from "../components/Skeleton";
 import { useState, type FormEvent } from "react";
 import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
@@ -5,6 +6,8 @@ import { useAuth } from "../auth/AuthContext";
 import { ApiError } from "../api/http";
 import { resendVerification, verifyEmail } from "../api/auth.api";
 import AuthSplitLayout from "../components/AuthSplitLayout";
+import { deadlinesFromServer, useVerificationCountdown, verificationDeadlines, type VerificationTiming } from "../auth/verificationCountdown";
+import VerificationCountdown from "../components/VerificationCountdown";
 import Feedback from "../components/Feedback";
 import type { AuthContext } from "../types/api";
 import { homeForUser } from "../auth/roleRouting";
@@ -33,6 +36,8 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [pendingEmail, setPendingEmail] = useState("");
+  const [deadlines, setDeadlines] = useState<ReturnType<typeof verificationDeadlines> | null>(null);
+  const countdown = useVerificationCountdown(pendingEmail ? deadlines : null);
   const [code, setCode] = useState("");
   const [notice, setNotice] = useState("");
   const [contextOptions,setContextOptions]=useState<AuthContext[]>([]);
@@ -51,7 +56,9 @@ export default function LoginPage() {
       if((signedIn.contexts?.length??0)===0){navigate(homeForUser(signedIn),{replace:true});return;}
       navigate(homeForUser(signedIn),{replace:true});
     } catch (err) {
-      if (err instanceof ApiError && (err.details as { detail?: { code?: string } } | null)?.detail?.code === "EMAIL_NOT_VERIFIED") {
+      const detail = err instanceof ApiError ? (err.details as { detail?: VerificationTiming & { code?: string } } | null)?.detail : undefined;
+      if (detail?.code === "EMAIL_NOT_VERIFIED") {
+        setDeadlines(deadlinesFromServer(detail));
         setPendingEmail(email.trim());
         setPassword("");
         setNotice("");
@@ -65,7 +72,7 @@ export default function LoginPage() {
 
   async function verifyPendingEmail(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (submitting || !/^[0-9]{6}$/.test(code)) return;
+    if (submitting || countdown.expired || !/^[0-9]{6}$/.test(code)) return;
     setSubmitting(true);
     setError("");
     setNotice("");
@@ -83,12 +90,15 @@ export default function LoginPage() {
   }
 
   async function resendCode() {
-    if (submitting) return;
+    if (submitting || countdown.resend > 0) return;
     setSubmitting(true);
     setError("");
     setNotice("");
     try {
+      const startedAt = Date.now();
       const response = await resendVerification(pendingEmail);
+      setDeadlines(verificationDeadlines(startedAt, true));
+      setCode("");
       setNotice(response.data.message);
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo solicitar otro código.");
@@ -110,14 +120,15 @@ export default function LoginPage() {
     <form className="form-stack" onSubmit={verifyPendingEmail}>
       <Feedback warning={"Verifica " + pendingEmail + " para iniciar sesión."} title="Correo pendiente" />
       <label className="field"><span>Código de seis dígitos</span><input inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} value={code} onChange={event => setCode(event.target.value.replace(/[^0-9]/g, ""))} required /></label>
+      <VerificationCountdown {...countdown} />
       <Feedback error={error} info={notice} />
-      <button className="button button-primary" disabled={submitting || code.length !== 6}>Verificar correo</button>
-      <button type="button" className="button button-secondary" disabled={submitting} onClick={() => void resendCode()}>Reenviar código</button>
+      <button className="button button-primary" disabled={submitting || countdown.expired || code.length !== 6}>Verificar correo</button>
+      <button type="button" className="button button-secondary" disabled={submitting || countdown.resend > 0} onClick={() => void resendCode()}>Reenviar código</button>
       <button type="button" className="button button-secondary" disabled={submitting} onClick={() => {
         setPendingEmail(""); setCode(""); setNotice(""); setError("");
       }}>Volver al inicio de sesión</button>
     </form>
-  ) : contextOptions.length>0?<section className="form-stack"><h2>Selecciona tu espacio</h2><p className="muted small-text">Tu cuenta tiene varios roles o instituciones.</p>{contextOptions.map((context,index)=><button className="button button-secondary button-full" type="button" key={`${context.institution_id}-${context.role}-${context.scope_type}-${context.scope_id}-${index}`} disabled={submitting} onClick={()=>void handleContextSelect(context)}>{roleName(context.role)}{context.institution_name?` · ${context.institution_name}`:""}{context.scope_type==="career"?" · Carrera asignada":""}</button>)}<Feedback error={error}/></section>:<form className="form-stack" onSubmit={handleSubmit}><label className="field"><span>Correo electrónico</span><input type="email" autoComplete="username" value={email} onChange={event=>setEmail(event.target.value)} placeholder="nombre@institucion.edu" required/></label><label className="field"><span>Contraseña</span><input type="password" autoComplete="current-password" value={password} onChange={event=>setPassword(event.target.value)} placeholder="Introduce tu contraseña" required/></label><div className="auth-forgot"><Link to="/forgot-password">¿Olvidaste tu contraseña?</Link></div><Feedback error={error} success={notice || registrationMessage}/><button className="button button-primary button-full" type="submit" disabled={submitting}>{submitting?'Iniciando sesión…':'Iniciar sesión'} <span aria-hidden="true">→</span></button></form>}<p className="auth-bottom">¿Todavía no tienes cuenta? <Link to="/register">Crear una cuenta</Link></p>
+  ) : contextOptions.length>0?<section className="form-stack"><h2>Selecciona tu espacio</h2><p className="muted small-text">Tu cuenta tiene varios roles o instituciones.</p>{contextOptions.map((context,index)=><button className="button button-secondary button-full" type="button" key={`${context.institution_id}-${context.role}-${context.scope_type}-${context.scope_id}-${index}`} disabled={submitting} onClick={()=>void handleContextSelect(context)}>{roleName(context.role)}{context.institution_name?` · ${context.institution_name}`:""}{context.scope_type==="career"?" · Carrera asignada":""}</button>)}<Feedback error={error}/></section>:<form className="form-stack" onSubmit={handleSubmit}><label className="field"><span>Correo electrónico</span><input name="username" type="email" autoComplete="username" value={email} onChange={event=>setEmail(event.target.value)} placeholder="nombre@institucion.edu" required/></label><PasswordField name="password" label="Contraseña" autoComplete="current-password" value={password} onChange={event=>setPassword(event.target.value)} placeholder="Introduce tu contraseña" required /><div className="auth-forgot"><Link to="/forgot-password">¿Olvidaste tu contraseña?</Link></div><Feedback error={error} success={notice || registrationMessage}/><button className="button button-primary button-full" type="submit" disabled={submitting}>{submitting?'Iniciando sesión…':'Iniciar sesión'} <span aria-hidden="true">→</span></button></form>}<p className="auth-bottom">¿Todavía no tienes cuenta? <Link to="/register">Crear una cuenta</Link></p>
   </AuthSplitLayout>
   );
 }

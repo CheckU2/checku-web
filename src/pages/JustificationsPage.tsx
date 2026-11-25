@@ -1,6 +1,7 @@
 import Skeleton from "../components/Skeleton";
 import CloseButton from "../components/CloseButton";
-import { useCallback, useEffect, useId, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useId, useRef, useState, type FormEvent } from "react";
+import { useLocation } from "react-router-dom";
 import { ImagePlus, Inbox, Send } from "lucide-react";
 import { apiRequest } from "../api/http";
 import { useAuth } from "../auth/AuthContext";
@@ -44,6 +45,11 @@ function ImageField({ file, onChange }: { file: File | null; onChange: (file: Fi
 
 export default function JustificationsPage() {
   const { user } = useAuth();
+  const { search: routeSearch, key: routeKey } = useLocation();
+  const params = new URLSearchParams(routeSearch);
+  const requestedPending = params.get("pendientes") === "1";
+  const requestedId = params.get("solicitud");
+  const openedRequest = useRef("");
   const role = activeRole(user);
   const teacher = role === "teacher";
   const tutor = role === "tutor";
@@ -64,7 +70,7 @@ export default function JustificationsPage() {
   const [loading, setLoading] = useState(true);
   const [optionsLoading, setOptionsLoading] = useState(canSubmit);
   const [busy, setBusy] = useState(false);
-  const [pendingOnly, setPendingOnly] = useState(false);
+  const [pendingOnly, setPendingOnly] = useState(requestedPending);
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
@@ -109,10 +115,26 @@ export default function JustificationsPage() {
     return () => { active = false; };
   }, [selected]);
 
-  function openThread(item: Item) {
+  const openThread = useCallback((item: Item) => {
     setMessages([]); setMessage(""); setAttachment(null); setComment(""); setDecision("excused");
     setError(""); setSuccess(""); setLoadingThread(true); setSelected(item.id);
-  }
+  }, []);
+
+  useEffect(() => {
+    if (!requestedPending) return;
+    setPendingOnly(true);
+    setPage(1);
+    setStatusFilter("");
+    setSearch("");
+  }, [requestedPending, routeKey]);
+
+  useEffect(() => {
+    if (!requestedId || loading || openedRequest.current === routeKey || !pendingOnly || page !== 1) return;
+    const item = items.find(entry => entry.id === requestedId);
+    if (!item) return;
+    openedRequest.current = routeKey;
+    if (selected !== item.id) openThread(item);
+  }, [requestedId, loading, routeKey, items, pendingOnly, page, selected, openThread]);
 
   async function submit(action: () => Promise<void>) {
     setBusy(true); setError(""); setSuccess("");
@@ -204,7 +226,7 @@ export default function JustificationsPage() {
         <div className="panel-heading"><div><span className="pill">{labels[current.status] || current.status}</span><h2 id="thread-title">{current.student_name || "Alumno"}</h2></div>
           <CloseButton autoFocus disabled={busy} onClick={() => setSelected(null)} aria-label="Cerrar justificante" /></div>
         <p>{current.reason}</p><Feedback error={error} success={success} />
-        <div className="message-thread" aria-live="polite">{messages.map(item => <div className="message-bubble" key={item.id}>
+        <div className="message-thread stagger-list" aria-live="polite">{messages.map(item => <div className="message-bubble" key={item.id}>
           <strong>{roleLabels[item.author_role] ?? "Personal académico"}</strong>
           {item.message && <p>{item.message}</p>}
           {item.image?.startsWith("data:image/jpeg;base64,") && <img className="justification-image" src={item.image} alt="Evidencia adjunta al justificante" />}

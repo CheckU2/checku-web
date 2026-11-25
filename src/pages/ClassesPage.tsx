@@ -1,7 +1,9 @@
+import useConfirmation from "../components/useConfirmation";
+import ContainerTransform from "../components/ContainerTransform";
 import AcademicCardSkeleton, { RosterSkeleton } from "../components/AcademicCardSkeleton";
 import { BookOpen, CalendarDays, ClipboardCheck, Plus, Search, UsersRound } from "lucide-react";
 import CloseButton from "../components/CloseButton";
-import { useCallback, useEffect, useState, type CSSProperties, type FormEvent, type MouseEvent } from "react";
+import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { activeRole, hasInstitution } from "../auth/roleRouting";
 import { useAuth } from "../auth/AuthContext";
@@ -21,6 +23,7 @@ function label(resource: string, row: ResourceRecord) {
   return `${String(row.name ?? row.code ?? "Registro")} ${row.code ? `(${row.code})` : ""}`;
 }
 export default function ClassesPage() {
+  const { ask, confirmationDialog } = useConfirmation();
   const { user } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
@@ -57,7 +60,6 @@ export default function ClassesPage() {
   const [success, setSuccess] = useState("");
   const [busy, setBusy] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
-  const [origin, setOrigin] = useState({ x: 0, y: 0 });
   const [calendarStudent, setCalendarStudent] = useState<ResourceRecord | null>(null);
   const [createdClass, setCreatedClass] = useState<ClassRow | null>(null);
   const [showGroup, setShowGroup] = useState(false);
@@ -198,9 +200,7 @@ export default function ClassesPage() {
     } catch (err) { setError(err instanceof Error ? err.message : "No se pudo actualizar la clase"); }
   }
 
-  function startClass(event: MouseEvent<HTMLButtonElement>) {
-    const rect = event.currentTarget.getBoundingClientRect();
-    setOrigin({ x: rect.left + rect.width / 2 - window.innerWidth / 2, y: rect.top + rect.height / 2 - window.innerHeight / 2 });
+  function startClass() {
     setCreatedClass(null); setError(""); setSuccess(""); setShowCreate(true);
   }
 
@@ -209,7 +209,7 @@ export default function ClassesPage() {
     const name = String(person.full_name ?? "Sin nombre");
     const avatar = typeof person.avatar_url === "string" ? person.avatar_url : typeof person.avatar === "string" ? person.avatar : null;
     return <li className="roster-row" key={id(person)}>
-      <UserAvatar name={name} avatar={avatar} size={38} />
+      <UserAvatar name={name} userId={id(person)} avatar={avatar} size={38} />
       <div className="roster-name"><strong>{name}</strong>{personRole && <small>{personRole}</small>}</div>
       {attendance && calendarAccess && <button className="icon-button" title="Ver asistencia" aria-label={`Ver asistencia de ${name}`} onClick={() => setCalendarStudent(person)}><ClipboardCheck size={18} /></button>}
     </li>;
@@ -219,14 +219,14 @@ export default function ClassesPage() {
     <Feedback error={error || catalogError} success={success} />
     {manager && !catalogLoading && !catalogError && ["careers", "groups", "academic-periods", ...(role === "teacher" ? [] : ["teachers"])].some(resource => (catalogs[resource] ?? []).length === 0) && <p className="muted">Para crear clases deben existir carreras, materias, grupos, periodos y docentes activos asociados a tu carrera. Si falta alguna opción, solicita su registro al administrador.</p>}
     {manager && <div className="table-actions"><button className="button button-primary" disabled={catalogLoading} onClick={startClass}><Plus size={17} /> Crear clase</button>{['tutor','career_admin','admin','super_admin'].includes(user?.role ?? '') && <button className="button button-secondary" onClick={() => setShowGroup(true)}>+ Crear grupo</button>}</div>}
-    {manager && showSubject && <div className="checku-modal-backdrop checku-modal-overlay" onMouseDown={e => {if(e.target===e.currentTarget)setShowSubject(false);}}><section className="panel checku-modal" role="dialog" aria-modal="true" aria-label="Nueva materia"><div className="panel-heading"><h2>+ Nueva materia</h2><CloseButton onClick={()=>setShowSubject(false)} /></div><p className="muted">Crea una materia sin salir de la clase.</p><Feedback error={error} /><form className="form-stack" onSubmit={createSubject}><label className="field"><span>Nombre de la materia</span><input autoFocus required minLength={2} maxLength={120} placeholder="Programación orientada a objetos" value={subjectName} onChange={e=>setSubjectName(e.target.value)}/></label><button className="button button-primary" disabled={busy}>Guardar y seleccionar</button></form></section></div>}
-    {manager && showCreate && <div className="checku-modal-backdrop checku-modal-from-trigger" ref={element => { if (element) element.inert = showSubject; }} style={{ "--dialog-x": `${origin.x}px`, "--dialog-y": `${origin.y}px` } as CSSProperties} onMouseDown={e => {if(e.target===e.currentTarget) setShowCreate(false);}}><section className="panel checku-modal" role="dialog" aria-modal="true" aria-label="Crear clase"><div className="panel-heading"><h2>{createdClass ? '¡Clase creada!' : 'Nueva clase'}</h2><CloseButton onClick={() => setShowCreate(false)} /></div><Feedback error={error} success={success} />{createdClass ? <div className="checku-created"><p>Comparte este código con tus alumnos</p><strong className="checku-code">{createdClass.join_code}</strong><button className="button button-primary" onClick={() => void navigator.clipboard?.writeText(createdClass.join_code ?? '')}>Copiar código</button><button className="button button-secondary" onClick={() => setShowCreate(false)}>Listo</button></div> : <><form className="resource-form" onSubmit={create}>
+    <ContainerTransform>{manager && showSubject && <div className="checku-modal-backdrop checku-modal-overlay" onMouseDown={e => {if(e.target===e.currentTarget)setShowSubject(false);}}><section className="panel checku-modal" role="dialog" aria-modal="true" aria-label="Nueva materia"><div className="panel-heading"><h2>+ Nueva materia</h2><CloseButton onClick={()=>setShowSubject(false)} /></div><p className="muted">Crea una materia sin salir de la clase.</p><Feedback error={error} /><form className="form-stack" onSubmit={createSubject}><label className="field"><span>Nombre de la materia</span><input autoFocus required minLength={2} maxLength={120} placeholder="Programación orientada a objetos" value={subjectName} onChange={e=>setSubjectName(e.target.value)}/></label><button className="button button-primary" disabled={busy}>Guardar y seleccionar</button></form></section></div>}</ContainerTransform>
+    <ContainerTransform>{manager && showCreate && <div className="checku-modal-backdrop" ref={element => { if (element) element.inert = showSubject; }} onMouseDown={e => {if(e.target===e.currentTarget) setShowCreate(false);}}><section className="panel checku-modal" role="dialog" aria-modal="true" aria-label="Crear clase"><div className="panel-heading"><h2>{createdClass ? '¡Clase creada!' : 'Nueva clase'}</h2><CloseButton onClick={() => setShowCreate(false)} /></div><Feedback error={error} success={success} />{createdClass ? <div className="checku-created"><p>Comparte este código con tus alumnos</p><strong className="checku-code">{createdClass.join_code}</strong><button className="button button-primary" onClick={() => void navigator.clipboard?.writeText(createdClass.join_code ?? '')}>Copiar código</button><button className="button button-secondary" onClick={() => setShowCreate(false)}>Listo</button></div> : <><form className="resource-form" onSubmit={create}>
       {([ ["career_id", "Carrera", "careers"], ["subject_id", "Materia", "subjects"], ["group_id", "Grupo", "groups"], ["period_id", "Periodo", "academic-periods"], ...((user?.role === "teacher" ? [] : [["teacher_id", "Docente", "teachers"]]) as [string, string, string][]) ] as const).map(([field, title, resource]) => <label className="field" key={field}><span>{title} *</span><select required={field !== "career_id" || user?.role === "admin" || user?.role === "super_admin"} value={field === "career_id" && assignedCareer ? assignedCareer : (values[field] ?? "")} disabled={field === "career_id" && Boolean(assignedCareer)} onChange={e => setValues(old => ({...old, [field]: e.target.value}))}><option value="">{field === "career_id" && user?.role !== "admin" && user?.role !== "super_admin" ? "Mi carrera asignada" : `Selecciona ${title.toLowerCase()}`}</option>{(catalogs[resource] ?? []).map(row => <option key={id(row)} value={id(row)}>{label(resource, row)}</option>)}</select></label>)}
       <div className="form-actions field-wide"><button type="button" className="button button-secondary" onClick={()=>{setError("");setShowSubject(true);}}>+ Crear nueva materia</button><button className="button button-primary" disabled={busy}>Crear clase y generar código</button></div>
-    </form></>}</section></div>}
-    {showGroup && <div className="checku-modal-backdrop" onMouseDown={e => {if(e.target===e.currentTarget)setShowGroup(false);}}><section className="panel checku-modal" role="dialog" aria-modal="true" aria-label="Crear grupo"><div className="panel-heading"><h2>Nuevo grupo</h2><CloseButton onClick={() => setShowGroup(false)} /></div><form className="form-stack" onSubmit={createGroup}><label className="field"><span>Nombre del grupo</span><input required value={groupName} onChange={e => setGroupName(e.target.value)} placeholder="3A" /></label><label className="field"><span>Clave del grupo</span><input required value={groupCode} onChange={e => setGroupCode(e.target.value)} placeholder="3A-SIS" /></label><label className="field"><span>Periodo</span><select required value={groupPeriod} onChange={e => setGroupPeriod(e.target.value)}><option value="">Selecciona periodo</option>{(catalogs['academic-periods'] ?? []).map(r => <option key={id(r)} value={id(r)}>{label('academic-periods',r)}</option>)}</select></label><button className="button button-primary" disabled={busy}>Guardar grupo</button></form></section></div>}
+    </form></>}</section></div>}</ContainerTransform>
+    <ContainerTransform>{showGroup && <div className="checku-modal-backdrop" onMouseDown={e => {if(e.target===e.currentTarget)setShowGroup(false);}}><section className="panel checku-modal" role="dialog" aria-modal="true" aria-label="Crear grupo"><div className="panel-heading"><h2>Nuevo grupo</h2><CloseButton onClick={() => setShowGroup(false)} /></div><form className="form-stack" onSubmit={createGroup}><label className="field"><span>Nombre del grupo</span><input required value={groupName} onChange={e => setGroupName(e.target.value)} placeholder="3A" /></label><label className="field"><span>Clave del grupo</span><input required value={groupCode} onChange={e => setGroupCode(e.target.value)} placeholder="3A-SIS" /></label><label className="field"><span>Periodo</span><select required value={groupPeriod} onChange={e => setGroupPeriod(e.target.value)}><option value="">Selecciona periodo</option>{(catalogs['academic-periods'] ?? []).map(r => <option key={id(r)} value={id(r)}>{label('academic-periods',r)}</option>)}</select></label><button className="button button-primary" disabled={busy}>Guardar grupo</button></form></section></div>}</ContainerTransform>
     {student && <div className="table-actions"><button className="button button-primary" onClick={()=>setShowJoin(true)} aria-label="Agregar clase">＋ Agregar clase</button></div>}
-    {student && showJoin && <div className="checku-modal-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget)setShowJoin(false);}}><section className="panel checku-modal" role="dialog" aria-modal="true" aria-label="Unirme a clase"><div className="panel-heading"><h2>Unirme a una clase</h2><CloseButton onClick={()=>setShowJoin(false)} /></div><p className="muted">Pide al docente el código de seis caracteres. Puede incluir letras y números.</p><form className="form-stack" onSubmit={join}><label className="field"><span>Código de la clase</span><input autoFocus required minLength={6} maxLength={6} pattern="[A-Za-z0-9]{6}" autoCapitalize="characters" spellCheck={false} value={code} onChange={e=>setCode(e.target.value)} placeholder="A4B219" /></label><button className="button button-primary" disabled={busy}>Unirme a la clase</button></form></section></div>}
+    <ContainerTransform>{student && showJoin && <div className="checku-modal-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget)setShowJoin(false);}}><section className="panel checku-modal" role="dialog" aria-modal="true" aria-label="Unirme a clase"><div className="panel-heading"><h2>Unirme a una clase</h2><CloseButton onClick={()=>setShowJoin(false)} /></div><p className="muted">Pide al docente el código de seis caracteres. Puede incluir letras y números.</p><form className="form-stack" onSubmit={join}><label className="field"><span>Código de la clase</span><input autoFocus required minLength={6} maxLength={6} pattern="[A-Za-z0-9]{6}" autoCapitalize="characters" spellCheck={false} value={code} onChange={e=>setCode(e.target.value)} placeholder="A4B219" /></label><button className="button button-primary" disabled={busy}>Unirme a la clase</button></form></section></div>}</ContainerTransform>
     {user?.role === 'tutor' && invitations.length > 0 && <section className="panel"><h2>Invitaciones de docentes</h2>{invitations.map(inv => <div key={id(inv)} className="table-actions"><span>Invitación a clase {String(inv.class_id ?? '')}</span><button className="button button-primary button-small" onClick={() => void acceptInvitation(inv)}>Aceptar</button></div>)}</section>}
     <section className="panel">
       <div className="panel-heading"><h2>{student ? "Mis clases" : "Clases registradas"}</h2>{!loading && <span className="pill">{total} clases</span>}</div>
@@ -236,7 +236,7 @@ export default function ClassesPage() {
         <label className="field"><span>Grupo</span><select value={groupFilter} onChange={event => { setGroupFilter(event.target.value); setPage(1); }}><option value="">Todos</option>{scopes.groups.filter(item => !careerFilter || item.career_id === careerFilter).map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label></>}
         <button className="button button-secondary">Buscar</button>
       </form>
-      {loading ? <AcademicCardSkeleton label="Cargando clases" /> : rows.length ? <div className="checku-card-grid academic-card-grid">{rows.map(row => (
+      {loading ? <AcademicCardSkeleton label="Cargando clases" /> : rows.length ? <div className="checku-card-grid academic-card-grid stagger-list">{rows.map(row => (
         <article className="checku-class-card academic-card" key={id(row)}>
           <div className="academic-card-top"><span className="module-tile-icon"><BookOpen size={22} /></span><span className="pill">{row.group_name || "Grupo sin nombre"}</span></div>
           <div><h3>{row.subject_name || "Clase"}</h3><p className="academic-card-meta"><CalendarDays size={15} /> {row.period_name || "Sin periodo"}</p></div>
@@ -247,7 +247,11 @@ export default function ClassesPage() {
           </div>
           {manager && role !== "tutor" && <details className="class-settings"><summary>Inscripción y código</summary><div className="table-actions"><strong>{row.join_code || "Sin código"}</strong>
             <button className="button button-ghost button-small" onClick={() => void modify(row, { enrollment_open: !row.enrollment_open })}>{row.enrollment_open ? "Cerrar inscripción" : "Abrir inscripción"}</button>
-            <button className="button button-ghost button-small" onClick={() => window.confirm("¿Regenerar el código?") && void modify(row, { regenerate_code: true })}>Nuevo código</button></div></details>}
+            <button className="button button-ghost button-small" onClick={async () => {
+              if (await ask({ title: "Regenerar código de la clase", message: "El código anterior dejará de servir para nuevas inscripciones.", action: "Regenerar código" })) {
+                await modify(row, { regenerate_code: true });
+              }
+            }}>Nuevo código</button></div></details>}
           {manager && role === "teacher" && Boolean(catalogs.tutors?.length) && <details className="class-settings"><summary>Invitar tutor</summary><div className="table-actions">
             <select aria-label="Selecciona tutor" value={selectedTutor[id(row)] ?? ""} onChange={event => { const value = event.target.value; setSelectedTutor(old => ({ ...old, [id(row)]: value })); }}><option value="">Selecciona tutor</option>{catalogs.tutors.map(tutor => <option key={id(tutor)} value={String(tutor.user_id)}>{String(tutor.full_name ?? "Tutor")}</option>)}</select>
             <button className="button button-secondary button-small" disabled={!selectedTutor[id(row)]} onClick={() => void inviteTutor(row)}>Invitar</button>
@@ -256,32 +260,33 @@ export default function ClassesPage() {
       ))}</div> : <p className="empty-state">No hay clases para mostrar con estos filtros.</p>}
       {total > 12 && <div className="pagination"><button className="button button-secondary button-small" disabled={page === 1 || loading} onClick={() => setPage(n => n - 1)}>Anterior</button><span>{page} de {Math.ceil(total / 12)}</span><button className="button button-secondary button-small" disabled={page * 12 >= total || loading} onClick={() => setPage(n => n + 1)}>Siguiente</button></div>}
     </section>
-    {manager && rosterClass && <div className="checku-modal-backdrop" onMouseDown={event => { if (event.target === event.currentTarget) setRosterClass(null); }}>
+    <ContainerTransform>{manager && rosterClass && <div className="checku-modal-backdrop" onMouseDown={event => { if (event.target === event.currentTarget) setRosterClass(null); }}>
       <section className="panel checku-modal academic-dialog" role="dialog" aria-modal="true" aria-label="Alumnos inscritos">
         <div className="panel-heading"><h2>{calendarStudent ? `Asistencia de ${String(calendarStudent.full_name)}` : "Alumnos inscritos"}</h2><CloseButton onClick={() => { setRosterClass(null); setCalendarStudent(null); }} /></div>
         {calendarStudent ? <><button className="button button-secondary button-small" onClick={() => setCalendarStudent(null)}>Volver a inscritos</button><AttendanceCalendar studentId={id(calendarStudent)} /></> :
           rosterBusy ? <RosterSkeleton label="Cargando inscritos" /> : <>
             <label className="field"><span className="sr-only">Buscar alumno</span><input value={rosterQuery} onChange={event => setRosterQuery(event.target.value)} placeholder="Buscar por nombre" /></label>
-            <ul className="roster-frame roster-list">{filterPeople(roster).map(person => personCard(person, undefined, true))}</ul>
+            <ul className="roster-frame roster-list stagger-list">{filterPeople(roster).map(person => personCard(person, undefined, true))}</ul>
             {!filterPeople(roster).length && <p className="empty-state">No se encontraron alumnos.</p>}
           </>}
       </section>
-    </div>}
-    {communityClass && <div className="checku-modal-backdrop" onMouseDown={event => { if (event.target === event.currentTarget) setCommunityClass(null); }}>
+    </div>}</ContainerTransform>
+    <ContainerTransform>{communityClass && <div className="checku-modal-backdrop" onMouseDown={event => { if (event.target === event.currentTarget) setCommunityClass(null); }}>
       <section className="panel checku-modal academic-dialog" role="dialog" aria-modal="true" aria-label="Participantes de la clase">
         <div className="panel-heading"><div><h2>{calendarStudent ? `Asistencia de ${String(calendarStudent.full_name)}` : "Participantes"}</h2><p className="muted">{communityClass.subject_name}</p></div><CloseButton onClick={() => setCommunityClass(null)} /></div>
         {calendarStudent ? <><button className="button button-secondary button-small" onClick={() => setCalendarStudent(null)}>Volver a participantes</button><AttendanceCalendar studentId={id(calendarStudent)} /></> :
           communityBusy ? <RosterSkeleton label="Cargando participantes" /> : community ? <>
             <h3>Equipo académico</h3>
-            <ul className="roster-frame roster-list">{community.teacher && personCard(community.teacher, "Docente")}{community.tutors.map(tutor => personCard(tutor, "Tutor asignado"))}</ul>
+            <ul className="roster-frame roster-list stagger-list">{community.teacher && personCard(community.teacher, "Docente")}{community.tutors.map(tutor => personCard(tutor, "Tutor asignado"))}</ul>
             {!community.tutors.length && <p className="muted small-text">Sin tutor asignado.</p>}
             <div className="panel-heading roster-heading"><h3>{student ? "Compañeros" : "Alumnos"} <span className="pill">{community.students.length}</span></h3>
               <label className="field"><span className="sr-only">Buscar por nombre</span><input value={rosterQuery} onChange={event => setRosterQuery(event.target.value)} placeholder="Buscar por nombre" /></label>
             </div>
-            <ul className="roster-frame roster-list">{filterPeople(community.students).map(person => personCard(person, undefined, true))}</ul>
+            <ul className="roster-frame roster-list stagger-list">{filterPeople(community.students).map(person => personCard(person, undefined, true))}</ul>
             {!filterPeople(community.students).length && <p className="empty-state">No hay alumnos que coincidan.</p>}
           </> : <Feedback error={error} />}
       </section>
-    </div>}
+    </div>}</ContainerTransform>
+    {confirmationDialog}
   </div>;
 }

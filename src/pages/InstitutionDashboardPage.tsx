@@ -1,3 +1,4 @@
+import useConfirmation from "../components/useConfirmation";
 import Skeleton from "../components/Skeleton";
 import { Building2, ChartColumn, Filter, UsersRound } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
@@ -28,8 +29,12 @@ const roleLabels: Record<AssignableRole, string> = {
 };
 
 export default function InstitutionDashboardPage() {
+  const { ask, confirmationDialog } = useConfirmation();
   const { user } = useAuth();
-  const { search } = useLocation();
+  const { search, hash, key: routeKey } = useLocation();
+  useEffect(() => {
+    if (hash === "#solicitudes-docentes") document.getElementById("solicitudes-docentes")?.scrollIntoView({ block: "start" });
+  }, [hash, routeKey]);
   const requestedGroup = new URLSearchParams(search).get("group") ?? "";
   const institutionId = user?.active_context?.institution_id ?? user?.institution_id ?? "";
   const contextRole = user?.active_context?.role ?? user?.role;
@@ -128,6 +133,7 @@ export default function InstitutionDashboardPage() {
         setSuccess("Solicitud rechazada; no se otorgaron permisos docentes.");
         setRejectReason("");
       }
+      window.dispatchEvent(new Event("role-requests-updated"));
       await load();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "No se pudo revisar la solicitud.");
@@ -160,7 +166,7 @@ export default function InstitutionDashboardPage() {
   }
 
   async function revokeRole(member: InstitutionMember, assignment: InstitutionMember["roles"][number]) {
-    if (assignment.role === "institution_owner" || !window.confirm(`¿Revocar el rol ${roleLabels[assignment.role as AssignableRole] ?? assignment.role} de ${member.full_name}?`)) return;
+    if (assignment.role === "institution_owner" || !(await ask({ title: "Revocar asignación", message: `Se retirará el rol ${roleLabels[assignment.role as AssignableRole] ?? assignment.role} de ${member.full_name}.`, action: "Revocar rol", destructive: true }))) return;
     setError("");
     setSuccess("");
     setBusy(true);
@@ -224,7 +230,7 @@ export default function InstitutionDashboardPage() {
       </tbody></table></div> : <p className="empty-state">Sin personas para estos filtros.</p>}
       {filteredMembers.length > 12 && <div className="pagination"><button className="button button-secondary button-small" disabled={memberPage === 1} onClick={() => setMemberPage(p => p - 1)}>Anterior</button><span>{memberPage} de {Math.ceil(filteredMembers.length / 12)}</span><button className="button button-secondary button-small" disabled={memberOffset + 12 >= filteredMembers.length} onClick={() => setMemberPage(p => p + 1)}>Siguiente</button></div>}
     </section>
-    <section className="panel">
+    <section className="panel" id="solicitudes-docentes">
       <div className="panel-heading"><div><h2>Solicitudes docentes</h2><p className="muted small-text">Aprobar activa el rol docente; rechazar no otorga permisos.</p></div></div>
       <label className="field"><span>Buscar solicitudes</span><input value={requestSearch} onChange={event => setRequestSearch(event.target.value)} placeholder="Nombre o correo" /></label>
       {loading ? <Skeleton variant="rows" /> : filteredRequests.length === 0 ? <p className="muted">No hay solicitudes pendientes.</p> : <div className="table-wrap"><table><thead><tr><th>Profesor</th><th>Correo</th><th>Carrera</th><th>Acciones</th></tr></thead><tbody>
@@ -236,7 +242,7 @@ export default function InstitutionDashboardPage() {
       </div>
       <aside className="management-side">
         <section className="panel"><h2 className="icon-heading"><ChartColumn size={20} /> Personal y alumnado</h2>
-          {loading ? <Skeleton label="Cargando indicadores" /> : <div className="report-bars">{indicators.map(item => <div key={item.id}><span>{item.label}</span><progress className="report-progress" value={item.value} max={maxIndicator} aria-label={item.label} /><strong>{item.value}</strong></div>)}</div>}
+          {loading ? <Skeleton label="Cargando indicadores" /> : <div className="report-bars stagger-list">{indicators.map(item => <div key={item.id}><span>{item.label}</span><progress className="report-progress" value={item.value} max={maxIndicator} aria-label={item.label} /><strong>{item.value}</strong></div>)}</div>}
         </section>
     <section className="panel" id="asignar-rol">
       <div className="panel-heading"><div><h2>Asignar rol</h2><p className="muted small-text">Solo puedes asignarlo a un miembro activo de esta institución.</p></div></div>
@@ -250,5 +256,6 @@ export default function InstitutionDashboardPage() {
 
       </aside>
     </div>
+    {confirmationDialog}
   </div>;
 }

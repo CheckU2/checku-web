@@ -1,3 +1,5 @@
+import { isNewPasswordValid } from "../auth/passwordPolicy";
+import PasswordField from "../components/PasswordField";
 import { useState, type FormEvent } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { resetPassword } from "../api/auth.api";
@@ -11,12 +13,15 @@ export default function ResetPasswordPage() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const matches = password === confirmation;
+  const validPassword = isNewPasswordValid(password);
   const resetToken = searchParams.get("token") ?? "";
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); setError(""); setSuccess("");
     if (!resetToken) { setError("El enlace no contiene un token de recuperación."); return; }
     if (password !== confirmation) { setError("Las contraseñas no coinciden."); return; }
+    if (!validPassword) return;
     setSubmitting(true);
     try {
       const response = await resetPassword(resetToken, password);
@@ -27,12 +32,11 @@ export default function ResetPasswordPage() {
 
   return <AuthSplitLayout>
     <p className="auth-kicker">SEGURIDAD</p><h1>Define una contraseña nueva<span className="auth-title-dot">.</span></h1>
-    <p className="muted">La contraseña debe tener entre 12 y 128 caracteres.</p>
     <form className="form-stack" onSubmit={handleSubmit}>
-      <label className="field"><span>Nueva contraseña</span><input type="password" value={password} onChange={(e) => setPassword(e.target.value)} minLength={12} maxLength={128} autoComplete="new-password" required /></label>
-      <label className="field"><span>Confirmar contraseña</span><input type="password" value={confirmation} onChange={(e) => setConfirmation(e.target.value)} minLength={12} maxLength={128} autoComplete="new-password" required /></label>
+      <PasswordField label="Nueva contraseña" value={password} onChange={(e) => setPassword(e.target.value)} name="new_password" autoComplete="new-password" policy required />
+      <PasswordField label="Confirmar contraseña" value={confirmation} onChange={(e) => setConfirmation(e.target.value)} name="confirmation" autoComplete="new-password" matches={matches} required />
       <Feedback error={error} success={success} />
-      <button className="button button-primary button-full" type="submit" disabled={submitting || !resetToken}>{submitting ? "Actualizando…" : "Cambiar contraseña"} <span aria-hidden="true">→</span></button>
+      <button className="button button-primary button-full" type="submit" disabled={submitting || !resetToken || !validPassword || !matches}>{submitting ? "Actualizando…" : "Cambiar contraseña"} <span aria-hidden="true">→</span></button>
     </form>
     <p className="auth-bottom"><Link to="/login">Volver al inicio de sesión</Link></p>
   </AuthSplitLayout>;

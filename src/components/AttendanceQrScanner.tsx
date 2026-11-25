@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import Feedback from "./Feedback";
+import { useContainerOpen } from "./ContainerTransform";
 
 interface Props {
   onScan: (value: string) => void;
@@ -7,6 +8,7 @@ interface Props {
 }
 
 export default function AttendanceQrScanner({ onScan, onClose }: Props) {
+  const open = useContainerOpen();
   const videoRef = useRef<HTMLVideoElement>(null);
   const onScanRef = useRef(onScan);
   const [ready, setReady] = useState(false);
@@ -16,7 +18,7 @@ export default function AttendanceQrScanner({ onScan, onClose }: Props) {
 
   useEffect(() => {
     const video = videoRef.current;
-    if (!video) return;
+    if (!video || !open) return;
 
     let cancelled = false;
     let stream: MediaStream | undefined;
@@ -92,7 +94,7 @@ export default function AttendanceQrScanner({ onScan, onClose }: Props) {
       cancelled = true;
       stop();
     };
-  }, []);
+  }, [open]);
 
   return (
     <div className="attendance-qr-scanner">

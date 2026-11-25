@@ -47,7 +47,7 @@ export default function AcademicOverview({ institution, revision }: { institutio
         <div><strong>{classes}</strong><small>Clases</small></div><div><strong>{data.students.length}</strong><small>Alumnos inscritos</small></div>
         <div><strong>{passing}</strong><small>Con 80% o más</small></div><div><strong>{risk}</strong><small>Debajo del 80%</small></div>
       </div>
-      <div className="report-bars">{comparison.slice(0, 8).map(item => <div key={item.id}><span>{item.name}</span><progress className="report-progress" value={item.percentage ?? 0} max={100} aria-label={`Asistencia de ${item.name}`} /><strong>{item.percentage == null ? "—" : `${item.percentage}%`}</strong></div>)}</div>
+      <div className="report-bars stagger-list">{comparison.slice(0, 8).map(item => <div key={item.id}><span>{item.name}</span><progress className="report-progress" value={item.percentage ?? 0} max={100} aria-label={`Asistencia de ${item.name}`} /><strong>{item.percentage == null ? "—" : `${item.percentage}%`}</strong></div>)}</div>
       {!comparison.length && <p className="muted">Sin sesiones cerradas en los últimos 90 días.</p>}
     </>}
   </section>;

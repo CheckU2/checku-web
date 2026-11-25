@@ -1,13 +1,14 @@
 import type { CSSProperties } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useEffect, useRef, useState } from "react";
-import { Bell, LayoutDashboard, BookOpen, CalendarCheck, CalendarClock, FileCheck2, GraduationCap, Users, UserRound, BookMarked, ClipboardList, Layers3, ChartNoAxesCombined, ShieldCheck, History, ChevronDown, ChevronRight, Menu, LogOut, Settings, X, type LucideIcon } from "lucide-react";
-import { apiRequest } from "../api/http";
+import { LayoutDashboard, BookOpen, CalendarCheck, CalendarClock, FileCheck2, GraduationCap, Users, UserRound, BookMarked, ClipboardList, Layers3, ChartNoAxesCombined, ShieldCheck, History, ChevronDown, ChevronRight, Menu, LogOut, Settings, X, type LucideIcon } from "lucide-react";
 import { useAuth } from "../auth/AuthContext";
 import { activeRole, canAccessInstitutionRoute, hasInstitution, homeForUser } from "../auth/roleRouting";
 import type { AuthContext } from "../types/api";
 import Feedback from "./Feedback";
 import UserAvatar from "./UserAvatar";
+import NotificationsPanel, { useWorkspaceNotifications } from "./NotificationsPanel";
+import WorkspaceSwitcher, { workspaceKey } from "./WorkspaceSwitcher";
 
 type NavItem = { to: string; label: string; icon: LucideIcon; roles?: string[]; institutional?: boolean };
 type NavGroup = { title: string; icon: LucideIcon; items: NavItem[] };
@@ -42,17 +43,6 @@ const groups: NavGroup[] = [
   ]},
 ];
 const roleLabels: Record<string,string> = {student:"Alumno",teacher:"Docente",tutor:"Tutor",career_director:"Director de carrera",career_admin:"Director de carrera",institution_owner:"Propietario institucional",institution_admin:"Administrador institucional",platform_super_admin:"Superadministrador de CheckU",admin:"Administrador",super_admin:"Superadministrador de CheckU"};
-const scopeLabels: Record<string, string> = { group: "Grupo", career: "Carrera", class: "Clase" };
-
-function workspaceKey(context: AuthContext | null | undefined) {
-  return context ? JSON.stringify([context.institution_id, context.role, context.scope_type, context.scope_id]) : "";
-}
-
-function workspaceLabel(context: AuthContext, contexts: AuthContext[]) {
-  const label = [roleLabels[context.role] ?? context.role, context.institution_name, scopeLabels[context.scope_type]].filter(Boolean).join(" · ");
-  const sameScope = contexts.filter(option => option.role === context.role && option.institution_id === context.institution_id && option.scope_type === context.scope_type);
-  return sameScope.length > 1 && context.scope_id ? `${label} · ${context.scope_id.slice(-6)}` : label;
-}
 
 export default function AppLayout() {
  const {user,signOut,selectContext}=useAuth(); const navigate=useNavigate(); const location=useLocation();
@@ -60,34 +50,22 @@ export default function AppLayout() {
  const [switchingWorkspace, setSwitchingWorkspace] = useState(false);
  const [workspaceError, setWorkspaceError] = useState("");
  const menuButton = useRef<HTMLButtonElement>(null);
- const [notifications, setNotifications] = useState({ context: "", count: 0 });
  const role=activeRole(user);
  const permissionRole=role==="career_director"?"career_admin":role;
  const contexts = user?.contexts ?? [];
  const currentWorkspace = workspaceKey(user?.active_context);
  const contextKey = JSON.stringify([user?.id, role, currentWorkspace]);
- const pending = notifications.context === contextKey ? notifications.count : 0;
- useEffect(() => {
-   if (role !== "teacher" && role !== "tutor") return;
-   let active = true;
-   const refresh = () => void apiRequest<{ data: { pending: number } }>("/api/v1/justifications/notifications")
-     .then(result => { if (active) setNotifications({ context: contextKey, count: result.data.pending }); })
-     .catch(() => { if (active) setNotifications({ context: contextKey, count: 0 }); });
-   refresh();
-   const timer = window.setInterval(refresh, 60_000);
-   window.addEventListener("focus", refresh);
-   window.addEventListener("justifications-updated", refresh);
-   return () => {
-     active = false;
-     window.clearInterval(timer);
-     window.removeEventListener("focus", refresh);
-     window.removeEventListener("justifications-updated", refresh);
-   };
- }, [contextKey, role, location.pathname]);
+ const reviewJustifications = canAccessInstitutionRoute(user, "/justifications") &&
+   ["teacher", "tutor", "career_admin", "career_director", "admin", "super_admin"].includes(role);
+ const reviewInstitution = canAccessInstitutionRoute(user, "/institution") &&
+   ["institution_owner", "institution_admin", "career_admin", "career_director"].includes(role);
+ const institutionId = reviewInstitution ? user?.active_context?.institution_id ?? user?.institution_id ?? "" : "";
+ const notificationFeed = useWorkspaceNotifications(contextKey, reviewJustifications, institutionId);
+ const pending = notificationFeed.pending;
  useEffect(() => {
    if (!menuOpen) return;
    const onKey = (event: KeyboardEvent) => {
-     if (event.key === "Escape") { setMenuOpen(false); menuButton.current?.focus(); }
+     if (event.key === "Escape" && !event.defaultPrevented) { setMenuOpen(false); menuButton.current?.focus(); }
    };
    window.addEventListener("keydown", onKey);
    return () => window.removeEventListener("keydown", onKey);
@@ -103,18 +81,18 @@ export default function AppLayout() {
    if (activeGroup) setExpanded(previous => ({ ...previous, [activeGroup]: true }));
  }, [activeGroup, location.pathname]);
  const activeItem=available.flatMap(g=>g.items).find(i=>i.to===location.pathname);
- const notices = canAccessInstitutionRoute(user, "/justifications") && (role === "teacher" || role === "tutor");
  const pageTitle = location.pathname === "/dashboard" ? "Inicio" : location.pathname === "/account" ? "Mi perfil" : activeItem?.label ?? "Panel";
- async function switchWorkspace(key: string) {
-   const context = contexts.find(option => workspaceKey(option) === key);
-   if (!context || key === currentWorkspace) return;
+ async function switchWorkspace(context: AuthContext) {
+   if (switchingWorkspace || workspaceKey(context) === currentWorkspace) return false;
    setWorkspaceError(""); setSwitchingWorkspace(true);
    try {
      const next = await selectContext(context);
      if (!canAccessInstitutionRoute(next, location.pathname)) navigate(homeForUser(next), { replace: true });
      setMenuOpen(false);
+     return true;
    } catch (error) {
      setWorkspaceError(error instanceof Error ? error.message : "No se pudo cambiar de rol.");
+     return false;
    } finally {
      setSwitchingWorkspace(false);
    }
@@ -124,15 +102,8 @@ export default function AppLayout() {
  return <div className={`app-shell checku-shell ${accent ? "personal-theme" : ""}`} style={accent ? { "--user-accent": accent } as CSSProperties : undefined}>
    <aside id="app-navigation" className={`sidebar checku-sidebar ${menuOpen?'sidebar-open':''}`}>
      <div className="sidebar-brand-row"><NavLink className="brand checku-brand" to={user ? homeForUser(user) : "/"} onClick={()=>setMenuOpen(false)}><img className="brand-logo" src="/icon.png" alt=""/><span>Check<span className="brand-accent">U</span></span></NavLink><button className="sidebar-close icon-button" aria-label="Cerrar menú" onClick={()=>setMenuOpen(false)}><X size={19}/></button></div>
-     {contexts.length > 1 && <div className="workspace-switcher">
-       <label className="field"><span>Rol y asignación</span>
-         <select value={currentWorkspace} disabled={switchingWorkspace} onChange={event => void switchWorkspace(event.target.value)}>
-           {!currentWorkspace && <option value="" disabled>Selecciona una asignación</option>}
-           {contexts.map(context => <option key={workspaceKey(context)} value={workspaceKey(context)}>{workspaceLabel(context, contexts)}</option>)}
-         </select>
-       </label>
-       <Feedback error={workspaceError} />
-     </div>}
+     {contexts.length > 1 && <WorkspaceSwitcher contexts={contexts} selected={currentWorkspace} roleLabels={roleLabels}
+       busy={switchingWorkspace} error={workspaceError} onSelect={switchWorkspace} />}
      <nav className="main-nav branch-nav" aria-label="Navegación principal">
        {canAccessInstitutionRoute(user, "/dashboard") && <NavLink to="/dashboard" onClick={() => setMenuOpen(false)} className={({ isActive }) => `nav-home ${isActive ? "nav-home-active" : ""}`}><LayoutDashboard size={19} /> Inicio</NavLink>}
        {available.map(group=>{const GroupIcon=group.icon;const open=!!expanded[group.title];const hasActive=group.title===activeGroup;const branchId = `nav-branch-${groups.findIndex(item => item.title === group.title)}`;const showPending = pending > 0 && group.items.some(item => item.to === "/justifications");return <section className="nav-group" key={group.title}>
@@ -144,7 +115,7 @@ export default function AppLayout() {
      </nav>
      <div className="workspace-footer">
        <NavLink to="/account" onClick={() => setMenuOpen(false)} className="nav-profile">
-         <UserAvatar name={user?.full_name || user?.email || "Usuario"} avatar={user?.avatar} size={36} />
+         <UserAvatar name={user?.full_name || user?.email || "Usuario"} userId={user?.id ?? user?._id} avatar={user?.avatar || user?.avatar_url} size={36} />
          <span><strong>Mi perfil</strong><small>{roleLabels[role] ?? "Usuario"}</small></span>
        </NavLink>
        <NavLink to="/account?editar=1" onClick={() => setMenuOpen(false)} className="header-action" aria-label="Editar perfil" title="Editar perfil"><Settings size={17} /></NavLink>
@@ -158,9 +129,10 @@ export default function AppLayout() {
          <div className="topbar-breadcrumb"><NavLink to={user ? homeForUser(user) : "/"}>CheckU</NavLink><ChevronRight size={14} aria-hidden="true" /><strong>{pageTitle}</strong></div>
        </div>
        <div className="user-menu">
-         {notices && <NavLink to="/justifications" className="header-action header-bell" aria-label={pending ? `Justificantes: ${pending} pendientes` : "Justificantes"} title="Justificantes"><Bell size={19} />{pending > 0 && <span aria-hidden="true">{pending > 99 ? "99+" : pending}</span>}</NavLink>}
+         <NotificationsPanel key={contextKey} feed={notificationFeed} verifyEmail={user?.email_verified === false}
+           waitingApproval={Boolean(user && homeForUser(user) === "/pending-approval")} />
          <NavLink to="/account" className="header-profile" aria-label="Mi perfil">
-           <UserAvatar name={user?.full_name || user?.email || "Usuario"} avatar={user?.avatar} size={36} />
+           <UserAvatar name={user?.full_name || user?.email || "Usuario"} userId={user?.id ?? user?._id} avatar={user?.avatar || user?.avatar_url} size={36} />
            <span className="user-details"><strong>{user?.full_name || user?.email}</strong><span>{roleLabels[role] ?? "Usuario"}</span></span>
          </NavLink>
          <NavLink className="header-action" to="/account?editar=1" title="Editar perfil" aria-label="Editar perfil"><Settings size={18} /></NavLink>
@@ -168,10 +140,9 @@ export default function AppLayout() {
        </div>
      </header>
      <main className="page-content checku-page">{user?.email_verified === false && location.pathname !== "/account" && (
-       <aside className="account-email-notice" aria-label="Correo pendiente">
-         <span>Tu correo está pendiente de verificar.</span>
-         <NavLink to="/account#correo">Verificar correo</NavLink>
-       </aside>
+       <div className="account-email-notice">
+         <Feedback title="Correo pendiente de verificar" warning="Confirma tu dirección de correo para completar la verificación." actions={<NavLink to="/account#correo">Verificar correo</NavLink>} />
+       </div>
      )}<Outlet key={contextKey} /></main>
    </div>
  </div>;

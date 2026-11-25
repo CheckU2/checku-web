@@ -1,3 +1,5 @@
+import { useEffect } from "react";
+import { rememberContainerTrigger } from "./components/ContainerTransform";
 import { Navigate, Route, Routes, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "./auth/AuthContext";
 import ProtectedRoute from "./auth/ProtectedRoute";
@@ -63,6 +65,11 @@ function CatalogRoute({ resource }: { resource: string }) {
 const resourceRoutes = Object.keys(RESOURCE_CONFIGS);
 
 export default function App() {
+  useEffect(() => {
+    const capture = (event: MouseEvent) => rememberContainerTrigger(event.target);
+    document.addEventListener("click", capture, true);
+    return () => document.removeEventListener("click", capture, true);
+  }, []);
   return <Routes>
     <Route path="/" element={<LandingPage />} />
     <Route path="/login" element={<LoginPage />} />

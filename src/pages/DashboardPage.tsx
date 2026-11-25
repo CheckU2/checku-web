@@ -179,7 +179,7 @@ export default function DashboardPage() {
         <RefreshCw size={16} className={loading ? "home-refreshing" : ""} /> {loading ? "Actualizando…" : "Actualizar"}
       </button>
     </div>
-    {partial && !loading && <Feedback warning="Algunos datos de Inicio no están disponibles. Puedes volver a actualizar." />}
+    {partial && !loading && <Feedback warning="Algunos datos de Inicio no están disponibles." actions={<button type="button" onClick={() => void refresh()}>Reintentar</button>} />}
     <div className="home-grid">
       <div className="home-main">
         <section className="home-hero">
@@ -206,7 +206,7 @@ export default function DashboardPage() {
 
         {showClasses && <section className="home-panel home-classes" aria-labelledby="home-classes-title">
           <div className="home-panel-heading"><h2 id="home-classes-title">{role === "student" || role === "teacher" ? "Mis clases" : "Clases del ámbito"}</h2><Link className="home-text-link" to="/classes">Ver todas</Link></div>
-          {summary.classes?.length ? <ul className="home-rows">
+          {summary.classes?.length ? <ul className="home-rows stagger-list">
             {summary.classes.map(row => (
               <li key={row.id}>
                 <Link to="/classes" state={{ classId: row.id }} className="home-row">
@@ -230,7 +230,7 @@ export default function DashboardPage() {
       <aside className="home-secondary" aria-label="Perfil y actividad">
         <section className="home-panel home-profile">
           <div className="home-panel-heading"><h2>Mi perfil</h2><Link className="icon-button" to="/account?editar=1" aria-label="Editar perfil" title="Editar perfil"><Settings size={19} /></Link></div>
-          <div className="home-profile-person"><UserAvatar name={name} avatar={user?.avatar} size={64} /><div><strong>{name}</strong><span>{info.label}</span></div></div>
+          <div className="home-profile-person"><UserAvatar name={name} userId={user?.id ?? user?._id} avatar={user?.avatar || user?.avatar_url} size={64} /><div><strong>{name}</strong><span>{info.label}</span></div></div>
         </section>
 
         {director && <section className="home-panel">
@@ -244,7 +244,7 @@ export default function DashboardPage() {
 
         {role === "teacher" && <section className="home-panel" aria-labelledby="home-sessions">
           <div className="home-panel-heading"><h2 id="home-sessions">Sesiones recientes</h2><Link className="home-text-link" to="/sessions">Ver todas</Link></div>
-          {summary.sessions?.length ? <ul className="home-rows">{summary.sessions.map(session => <li key={session.id} className="home-row">
+          {summary.sessions?.length ? <ul className="home-rows stagger-list">{summary.sessions.map(session => <li key={session.id} className="home-row">
             <span className="home-row-icon"><CalendarDays size={18} /></span>
             <span className="home-row-copy"><strong>{session.subject_name || "Sesión"}</strong><span>{session.started_at ? sessionFormatter.format(new Date(session.started_at)) : session.group_name}</span></span>
             <span className={`home-session-status ${session.status === "active" ? "home-session-active" : ""}`}>{sessionLabels[session.status] || session.status}</span>

@@ -23,7 +23,7 @@ export default function ForgotPasswordPage() {
     <p className="auth-kicker">RECUPERACIÓN DE CUENTA</p><h1>Recupera tu contraseña<span className="auth-title-dot">.</span></h1>
     <p className="muted">Si tu cuenta existe, te enviaremos las instrucciones por correo.</p>
     <form className="form-stack" onSubmit={handleSubmit}>
-      <label className="field"><span>Correo electrónico</span><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" required /></label>
+      <label className="field"><span>Correo electrónico</span><input name="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" required /></label>
       <Feedback error={error} success={success} />
       <button className="button button-primary button-full" type="submit" disabled={submitting}>{submitting ? "Enviando…" : "Enviar instrucciones"} <span aria-hidden="true">→</span></button>
     </form>
