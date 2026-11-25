@@ -26,6 +26,7 @@ export interface AuthUser {
   _id?: string;
   full_name?: string;
   email: string;
+  email_verified?: boolean;
   role: UserRole;
   is_active?: boolean;
   career_id?: string;

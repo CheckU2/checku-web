@@ -1,19 +1,24 @@
 import CloseButton from "../components/CloseButton";
-import { useId, useState, type FormEvent } from "react";
-import { Camera, Clock3, LockKeyhole, Pencil } from "lucide-react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useEffect, useId, useState, type FormEvent } from "react";
+import { Camera, Clock3, Pencil } from "lucide-react";
+import { useLocation, useSearchParams } from "react-router-dom";
 import { apiRequest } from "../api/http";
 import { useAuth } from "../auth/AuthContext";
 import Feedback from "../components/Feedback";
 import UserAvatar from "../components/UserAvatar";
+import { AccountEmail, AccountPassword } from "../components/AccountSecurity";
 import ProfilePhotoCrop from "../components/ProfilePhotoCrop";
 
 export default function AccountPage() {
-  const { user, refreshUser, signOut } = useAuth();
+  const { user, refreshUser } = useAuth();
+  const { hash } = useLocation();
+  const [editingEmail, setEditingEmail] = useState(false);
+  useEffect(() => {
+    if (hash === "#correo" || editingEmail) document.getElementById("correo")?.scrollIntoView({ block: "start" });
+  }, [hash, editingEmail]);
   const photoInputId = useId();
   const [selectedFileName, setSelectedFileName] = useState("");
   const [photoToCrop, setPhotoToCrop] = useState<File | null>(null);
-  const navigate = useNavigate();
   const [fullName, setFullName] = useState(user?.full_name ?? "");
   const [params, setParams] = useSearchParams();
   const editing = params.get("editar") === "1";
@@ -28,18 +33,12 @@ export default function AccountPage() {
   const [bannerColor, setBannerColor] = useState(user?.banner_color ?? "#63B89F");
   const [bio, setBio] = useState(user?.bio ?? "");
   const [avatar, setAvatar] = useState<string | null>(user?.avatar ?? null);
-  const [currentPassword, setCurrentPassword] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmation, setConfirmation] = useState("");
   const [timezoneName, setTimezoneName] = useState(user?.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone ?? "UTC");
   const [timezoneBusy, setTimezoneBusy] = useState(false);
   const [timezoneMessage, setTimezoneMessage] = useState("");
   const [profileError, setProfileError] = useState("");
   const [profileSuccess, setProfileSuccess] = useState("");
-  const [passwordError, setPasswordError] = useState("");
-  const [passwordSuccess, setPasswordSuccess] = useState("");
   const [savingProfile, setSavingProfile] = useState(false);
-  const [savingPassword, setSavingPassword] = useState(false);
 
   function onImage(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.currentTarget.files?.[0];
@@ -55,7 +54,15 @@ export default function AccountPage() {
 
   function closeProfileEditor() {
     if (photoToCrop) setPhotoToCrop(null);
-    else setEditing(false);
+    else {
+      setFullName(user?.full_name ?? "");
+      setBio(user?.bio ?? "");
+      setAvatar(user?.avatar ?? null);
+      setBannerColor(user?.banner_color ?? "#63B89F");
+      setSelectedFileName("");
+      setProfileError("");
+      setEditing(false);
+    }
   }
   async function updateProfile(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); setProfileError(""); setProfileSuccess(""); setSavingProfile(true);
@@ -66,33 +73,19 @@ export default function AccountPage() {
     finally { setSavingProfile(false); }
   }
 
-  async function changePassword(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault(); setPasswordError(""); setPasswordSuccess("");
-    if (newPassword !== confirmation) { setPasswordError("Las contraseñas nuevas no coinciden."); return; }
-    if (newPassword.length < 12) { setPasswordError("La contraseña nueva debe tener al menos 12 caracteres."); return; }
-    setSavingPassword(true);
-    try {
-      const response = await apiRequest<{ data?: { message?: string } }>("/api/v1/auth/change-password", { method: "PATCH", body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }) });
-      setPasswordSuccess(response.data?.message ?? "Contraseña actualizada.");
-      setCurrentPassword(""); setNewPassword(""); setConfirmation("");
-      await signOut().catch(() => undefined);
-      navigate("/login", { replace: true, state: { message: "Contraseña actualizada. Inicia sesión con tu nueva contraseña." } });
-    } catch (err) { setPasswordError(err instanceof Error ? err.message : "No se pudo cambiar la contraseña."); }
-    finally { setSavingPassword(false); }
-  }
-
   const roleNames: Record<string, string> = {student:"Alumno",teacher:"Docente",tutor:"Tutor",career_admin:"Administrador de carrera",admin:"Administrador",super_admin:"Administrador general"};
   return (
     <div className="page">
       <header className="profile-page-heading"><h1>Mi cuenta</h1><p className="muted">Perfil, seguridad y preferencias personales.</p></header>
+      <Feedback success={profileSuccess} />
       <section className="panel checku-profile-card">
         <div className="checku-profile-banner" style={{backgroundColor: user?.banner_color ?? "#63B89F"}} />
-        <div className="checku-profile-summary"><div className="checku-profile-avatar"><UserAvatar name={user?.full_name??"Usuario"} avatar={user?.avatar} size={82}/></div><h2>{user?.full_name ?? "Mi perfil"}</h2><span className="pill">{roleNames[user?.role ?? ""] ?? "Usuario"}</span><p>{user?.bio || "Puedes agregar una descripción sobre ti."}</p><p className="muted">{user?.email}</p><button className="button button-primary" onClick={() => setEditing(true)}><Pencil size={16} /> Editar perfil</button></div>
+        <div className="checku-profile-summary"><div className="checku-profile-avatar"><UserAvatar name={user?.full_name??"Usuario"} avatar={user?.avatar} size={82}/></div><h2>{user?.full_name ?? "Mi perfil"}</h2><span className="pill">{roleNames[user?.role ?? ""] ?? "Usuario"}</span><p>{user?.bio || "Puedes agregar una descripción sobre ti."}</p><p className="muted">{user?.email}</p><div className="table-actions"><button className="button button-primary" onClick={() => setEditing(true)}><Pencil size={16} /> Editar perfil</button>{user?.email_verified && <button type="button" className="button button-secondary" onClick={() => setEditingEmail(true)}>Cambiar correo</button>}</div></div>
         {editing && <div className="checku-modal-backdrop" onMouseDown={e => {if(e.target===e.currentTarget)closeProfileEditor()}}><div className="panel checku-modal" role="dialog" aria-modal="true" aria-labelledby="profile-editor-title">
         <div className="panel-heading"><h2 id="profile-editor-title">{photoToCrop ? "Recortar fotografía" : "Editar perfil"}</h2><CloseButton onClick={closeProfileEditor} /></div>
         
         
-        <Feedback error={profileError} success={profileSuccess} />
+        <Feedback error={profileError} />
         {photoToCrop ? <ProfilePhotoCrop file={photoToCrop} onCancel={() => setPhotoToCrop(null)} onApply={data => {
           setAvatar(data);
           setSelectedFileName(photoToCrop.name);
@@ -106,18 +99,10 @@ export default function AccountPage() {
         </form>}
         </div></div>}
       </section>
-      <div className="academic-split profile-preferences"><details className="panel"><summary><Clock3 size={20} /> Zona horaria</summary><p className="muted">Se utiliza para interpretar las fechas de tu actividad académica. Los registros se almacenan en UTC.</p><form className="form-stack account-form" onSubmit={async e=>{e.preventDefault();setTimezoneBusy(true);setTimezoneMessage("");try{await apiRequest("/api/v1/auth/profile",{method:"PATCH",body:JSON.stringify({timezone:timezoneName})});await refreshUser();setTimezoneMessage("Zona horaria guardada.");}catch(err){setTimezoneMessage(err instanceof Error?err.message:"No se pudo guardar la zona horaria.");}finally{setTimezoneBusy(false);}}}><label className="field"><span>Zona horaria IANA</span><input value={timezoneName} onChange={e=>setTimezoneName(e.target.value)} placeholder="America/Mexico_City" required /></label><p className="muted small-text">Ejemplos: America/Mexico_City, America/Cancun, America/Bogota.</p><button className="button button-primary" disabled={timezoneBusy}>{timezoneBusy?"Guardando…":"Guardar zona horaria"}</button>{timezoneMessage&&<p role="status">{timezoneMessage}</p>}</form></details>
-      <details className="panel">
-        <summary><LockKeyhole size={20} /> Cambiar contraseña</summary>
-        <p className="muted small-text">Después de cambiarla, tendrás que iniciar sesión de nuevo.</p>
-        <Feedback error={passwordError} success={passwordSuccess} />
-        <form className="form-stack account-form" onSubmit={changePassword}>
-          <label className="field"><span>Contraseña actual</span><input type="password" value={currentPassword} onChange={(event) => setCurrentPassword(event.target.value)} autoComplete="current-password" required /></label>
-          <label className="field"><span>Contraseña nueva</span><input type="password" value={newPassword} onChange={(event) => setNewPassword(event.target.value)} minLength={12} maxLength={128} autoComplete="new-password" required /></label>
-          <label className="field"><span>Confirmar contraseña nueva</span><input type="password" value={confirmation} onChange={(event) => setConfirmation(event.target.value)} minLength={12} maxLength={128} autoComplete="new-password" required /></label>
-          <div><button className="button button-primary" type="submit" disabled={savingPassword}>{savingPassword ? "Actualizando…" : "Cambiar contraseña"}</button></div>
-        </form>
-      </details></div>
+      {user && <AccountEmail currentEmail={user.email} verified={user.email_verified} editing={editingEmail} onClose={() => setEditingEmail(false)} />}
+      <div className="academic-split profile-preferences"><details className="panel"><summary><Clock3 size={20} /> Zona horaria</summary><p className="muted">Se utiliza para interpretar las fechas de tu actividad académica. Los registros se almacenan en UTC.</p><form className="form-stack account-form" onSubmit={async e=>{e.preventDefault();setTimezoneBusy(true);setTimezoneMessage("");try{await apiRequest("/api/v1/auth/profile",{method:"PATCH",body:JSON.stringify({timezone:timezoneName})});await refreshUser();setTimezoneMessage("Zona horaria guardada.");}catch(err){setTimezoneMessage(err instanceof Error?err.message:"No se pudo guardar la zona horaria.");}finally{setTimezoneBusy(false);}}}><label className="field"><span>Zona horaria IANA</span><input value={timezoneName} onChange={e=>setTimezoneName(e.target.value)} placeholder="America/Mexico_City" required /></label><p className="muted small-text">Ejemplos: America/Mexico_City, America/Cancun, America/Bogota.</p><button type="button" className="button button-secondary" disabled={timezoneBusy} onClick={() => setTimezoneName(Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC")}>Usar zona de mi dispositivo</button><button className="button button-primary" disabled={timezoneBusy}>{timezoneBusy?"Guardando…":"Guardar zona horaria"}</button>{timezoneMessage&&<p role="status">{timezoneMessage}</p>}</form></details>
+      {user && <AccountPassword key={user.email} email={user.email} />}
+      </div>
     </div>
   );
 }
