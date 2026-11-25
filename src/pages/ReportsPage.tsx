@@ -126,13 +126,13 @@ export default function ReportsPage() {
       <div className="academic-split">
         <section className="panel"><h2 className="icon-heading"><ChartColumn size={21} /> Asistencia por grupo</h2>
           <p className="muted small-text">Compara la proporción de asistencias y las faltas registradas entre los grupos de tu ámbito.</p>
-          <div className="report-bars">{[...report.groups].sort((a, b) => (b.percentage ?? -1) - (a.percentage ?? -1)).map(group => (
+          <div className="report-bars stagger-list">{[...report.groups].sort((a, b) => (b.percentage ?? -1) - (a.percentage ?? -1)).map(group => (
             <div key={group.id} className={filters.group_id === group.id ? "report-bar-selected" : ""}><span><strong>{group.name}</strong><small>{group.counts.absent ?? 0} faltas · {count(group.counts)} evaluadas</small></span><progress className={group.percentage != null && group.percentage < 80 ? "report-progress below-target" : "report-progress"} value={group.percentage ?? 0} max={100} aria-label={`Asistencia del grupo ${group.name}`} /><strong>{pct(group.percentage)}</strong></div>
           ))}{!report.groups.length && <p className="empty-state">No hay grupos con registros en el periodo.</p>}</div>
         </section>
         <section className="panel"><h2 className="icon-heading"><ChartColumn size={21} /> {individual ? individual.name : "Asistencia por fecha"}</h2>
           {individual && <p className={individual.percentage != null && individual.percentage < 80 ? "report-risk" : "report-student-score"}><strong>{pct(individual.percentage)}</strong> · {count(individual.counts)} asistencias evaluadas</p>}
-          <div className="report-bars">{trend.map(day => <div key={day.date}><span>{day.date.slice(5).split("-").reverse().join("/")}</span><progress className="report-progress" value={day.percentage ?? 0} max={100} aria-label={`Asistencia del ${day.date}`} /><strong>{pct(day.percentage)}</strong></div>)}
+          <div className="report-bars stagger-list">{trend.map(day => <div key={day.date}><span>{day.date.slice(5).split("-").reverse().join("/")}</span><progress className="report-progress" value={day.percentage ?? 0} max={100} aria-label={`Asistencia del ${day.date}`} /><strong>{pct(day.percentage)}</strong></div>)}
             {!trend.length && <p className="empty-state">Todavía no hay registros en esta selección.</p>}
           </div>
         </section>

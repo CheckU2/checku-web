@@ -72,7 +72,7 @@ export default function AttendanceCalendar({ studentId, revision = 0 }: { studen
     </div>
     <div className="calendar-detail" aria-live="polite">
       <h3>{dayName.format(new Date(`${date}T00:00:00Z`))}</h3>
-      {loading ? <Skeleton count={2} label="Cargando clases del día" /> : !error && (selected.length ? <ul>{selected.map(session => <li key={session.id}><div><strong>{session.subject}</strong><small>{time.format(new Date(session.started_at))}</small></div>
+      {loading ? <Skeleton count={2} label="Cargando clases del día" /> : !error && (selected.length ? <ul className="stagger-list">{selected.map(session => <li key={session.id}><div><strong>{session.subject}</strong><small>{time.format(new Date(session.started_at))}</small></div>
         <span className={`status ${session.status === "absent" ? "status-inactive" : ["present", "late", "excused"].includes(session.status) ? "status-active" : "status-neutral"}`}>{statuses[session.status] || session.status}</span></li>)}</ul> : <p className="muted">Sin clases registradas este día.</p>)}
     </div>
   </div>;

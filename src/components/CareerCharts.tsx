@@ -16,7 +16,7 @@ function CountChart({ title, rows }: { title: string; rows: [string, number][] }
   return (
     <section className="panel career-chart" aria-labelledby={heading}>
       <h2 id={heading}>{title}</h2>
-      <ul>
+      <ul className="stagger-list">
         {rows.map(([label, value]) => (
           <li key={label}>
             <span>{label}</span>

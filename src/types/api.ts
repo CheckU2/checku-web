@@ -17,6 +17,7 @@ export interface AuthContext {
   role: UserRole;
   scope_type: string;
   scope_id: string | null;
+  scope_name?: string | null;
   career_id?: string | null;
   permissions: string[];
 }
@@ -36,6 +37,7 @@ export interface AuthUser {
   active_context?: AuthContext | null;
   timezone?: string;
   avatar?: string | null;
+  avatar_url?: string | null;
   bio?: string;
   banner_color?: string;
 }

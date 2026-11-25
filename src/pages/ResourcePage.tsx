@@ -1,3 +1,5 @@
+import useConfirmation from "../components/useConfirmation";
+import ContainerTransform from "../components/ContainerTransform";
 import Skeleton from "../components/Skeleton";
 import CloseButton from "../components/CloseButton";
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
@@ -63,6 +65,7 @@ function recordId(record: ResourceRecord): string | undefined {
 
 interface ResourcePageProps { resource: string }
 export default function ResourcePage({ resource }: ResourcePageProps) {
+  const { ask, confirmationDialog } = useConfirmation();
   const config = RESOURCE_CONFIGS[resource];
   const { user } = useAuth();
   const [search, setSearch] = useState("");
@@ -192,7 +195,7 @@ export default function ResourcePage({ resource }: ResourcePageProps) {
   async function handleDelete(record: ResourceRecord) {
     if (!config) return;
     const id = recordId(record);
-    if (!id || !window.confirm("¿Seguro que quieres eliminar este registro?")) return;
+    if (!id || !(await ask({ title: "Eliminar registro", message: "El registro se quitará del catálogo.", action: "Eliminar registro", destructive: true }))) return;
     setError(""); setSuccess("");
     try { await deleteResource(config.path, id); setSuccess("Registro eliminado."); await load(page); }
     catch (err) { setError(err instanceof Error ? err.message : "No se pudo eliminar el registro."); }
@@ -232,13 +235,16 @@ export default function ResourcePage({ resource }: ResourcePageProps) {
       </form>
     </section>}
 
-    {rosterLoading && <section className="panel"><h2>Alumnos del grupo</h2><Skeleton label="Cargando alumnos del grupo" /></section>}
-    {!rosterLoading && groupRoster && <section className="panel">
-      <div className="panel-heading"><h2>Alumnos de {groupRoster.name}</h2><CloseButton onClick={() => setGroupRoster(null)} /></div>
+    <ContainerTransform>{(rosterLoading || groupRoster) && <section className="panel">
+      <div className="panel-heading"><h2>{groupRoster ? `Alumnos de ${groupRoster.name}` : "Alumnos del grupo"}</h2>
+        {!rosterLoading && <CloseButton onClick={() => setGroupRoster(null)} />}
+      </div>
+      {rosterLoading ? <Skeleton label="Cargando alumnos del grupo" /> : groupRoster && <>
       <label className="field"><span>Buscar alumno</span><input value={rosterSearch} onChange={event => setRosterSearch(event.target.value)} placeholder="Nombre o correo" /></label>
       {groupRoster.students.length === 0 ? <p>El grupo aún no tiene alumnos inscritos.</p> :
-        <ul className="roster-list roster-frame">{groupRoster.students.filter(student => `${student.full_name} ${student.email}`.toLocaleLowerCase().includes(rosterSearch.trim().toLocaleLowerCase())).map(student => <li className="roster-row" key={student.id}><div className="roster-name"><strong>{student.full_name}</strong><small>{student.email}</small></div></li>)}</ul>}
-    </section>}
+        <ul className="roster-list roster-frame stagger-list">{groupRoster.students.filter(student => `${student.full_name} ${student.email}`.toLocaleLowerCase().includes(rosterSearch.trim().toLocaleLowerCase())).map(student => <li className="roster-row" key={student.id}><div className="roster-name"><strong>{student.full_name}</strong><small>{student.email}</small></div></li>)}</ul>}
+      </>}
+    </section>}</ContainerTransform>
     <section className="panel"><div className="panel-heading"><div><h2>Registros</h2><p className="muted small-text">{total} en total</p></div><span className="pill">Página {page} de {pageCount}</span></div>
       <form className="inline-controls catalog-filters" onSubmit={event => { event.preventDefault(); setPage(1); setSearch(searchDraft.trim()); }}>
         <label className="field"><span>Buscar en el catálogo</span><input value={searchDraft} maxLength={80} onChange={event => setSearchDraft(event.target.value)} placeholder="Nombre, clave o estado" /></label>
@@ -248,5 +254,6 @@ export default function ResourcePage({ resource }: ResourcePageProps) {
       {loading ? <Skeleton variant="rows" /> : records.length === 0 ? <div className="empty-state">No hay registros para mostrar, o tu rol no tiene acceso a ellos.</div> : <div className="table-wrap"><table><thead><tr>{config.columns.map((column) => <th key={column.key}>{column.label}</th>)}{(canEdit || canDelete || canViewMembers) && <th>Acciones</th>}</tr></thead><tbody>{records.map((record, index) => <tr key={recordId(record) ?? index}>{config.columns.map((column) => <td key={column.key}>{displayCell(record, column.key)}</td>)}{(canEdit || canDelete || canViewMembers) && <td><div className="table-actions">{institutionId && resource === "groups" && canManageCatalog && recordId(record) && <Link className="button button-ghost button-small" to={`/institution?group=${encodeURIComponent(recordId(record) ?? "")}`}>Asignar tutor</Link>}{canViewMembers && <button className="button button-ghost button-small" disabled={rosterLoading} onClick={() => void viewGroup(record)}>Ver alumnos</button>}{canEdit && <button className="button button-ghost button-small" onClick={() => beginEdit(record)}>Editar</button>}{canDelete && <button className="button button-danger-ghost button-small" onClick={() => void handleDelete(record)}>Eliminar</button>}</div></td>}</tr>)}</tbody></table></div>}
       <div className="pagination"><button className="button button-secondary button-small" disabled={page <= 1 || loading} onClick={() => setPage((value) => Math.max(1, value - 1))}>Anterior</button><span className="muted small-text">{total ? `${(page - 1) * 20 + 1}–${Math.min(page * 20, total)} de ${total}` : "0 registros"}</span><button className="button button-secondary button-small" disabled={page >= pageCount || loading} onClick={() => setPage((value) => value + 1)}>Siguiente</button></div>
     </section></div>
+    {confirmationDialog}
   </div>;
 }

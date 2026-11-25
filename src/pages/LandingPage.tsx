@@ -1,3 +1,4 @@
+import ContainerTransform from "../components/ContainerTransform";
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { BarChart3, CalendarDays, ChevronDown, CircleCheck, ClipboardCheck, Cookie, FileCheck2, GraduationCap, House, LogIn, MapPin, Phone, QrCode, ShieldCheck, Smartphone, UserRound } from "lucide-react";
@@ -146,7 +147,7 @@ export default function LandingPage() {
       </nav>
       {loading ? <span className="landing-session" role="status" aria-label="Cargando sesión" /> : signedIn ?
         <Link className="landing-avatar" to="/account" aria-label="Mi perfil">
-          <UserAvatar name={signedIn.full_name || signedIn.email} avatar={signedIn.avatar} size={42} />
+          <UserAvatar name={signedIn.full_name || signedIn.email} userId={signedIn.id ?? signedIn._id} avatar={signedIn.avatar || signedIn.avatar_url} size={42} />
         </Link> :
         <Link className="landing-button landing-secondary" to="/login"><LogIn size={17} /> Ingresar</Link>}
     </header>
@@ -253,13 +254,13 @@ export default function LandingPage() {
       </div>
     </footer>
 
-    {consentOpen && <aside className="landing-consent" aria-labelledby="landing-consent-title">
+    <ContainerTransform>{consentOpen && <aside className="landing-consent" aria-labelledby="landing-consent-title">
       <Cookie size={25} aria-hidden="true" />
       <div><strong id="landing-consent-title">Preferencias de cookies</strong><p>Usamos una cookie para recordar tu elección. Puedes seguir navegando si rechazas las cookies opcionales.</p></div>
       <div className="landing-consent-actions">
         <button type="button" className="landing-button landing-secondary" onClick={() => saveConsent("rejected")}>Rechazar</button>
         <button type="button" className="landing-button landing-primary" onClick={() => saveConsent("accepted")}>Aceptar</button>
       </div>
-    </aside>}
+    </aside>}</ContainerTransform>
   </div>;
 }
