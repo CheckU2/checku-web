@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 import { requestPasswordReset } from "../api/auth.api";
+import AuthSplitLayout from "../components/AuthSplitLayout";
 import Feedback from "../components/Feedback";
 
 export default function ForgotPasswordPage() {
@@ -18,15 +19,14 @@ export default function ForgotPasswordPage() {
     finally { setSubmitting(false); }
   }
 
-  return <main className="auth-page"><section className="auth-card">
-    <div className="brand brand-centered"><span className="brand-mark">C</span><span>CheckU</span></div>
-    <p className="eyebrow">RECUPERACIÓN DE CUENTA</p><h1>Recupera tu contraseña</h1>
+  return <AuthSplitLayout>
+    <p className="auth-kicker">RECUPERACIÓN DE CUENTA</p><h1>Recupera tu contraseña<span className="auth-title-dot">.</span></h1>
     <p className="muted">Si tu cuenta existe, te enviaremos las instrucciones por correo.</p>
     <form className="form-stack" onSubmit={handleSubmit}>
       <label className="field"><span>Correo electrónico</span><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" required /></label>
       <Feedback error={error} success={success} />
-      <button className="button button-primary button-full" type="submit" disabled={submitting}>{submitting ? "Enviando…" : "Enviar instrucciones"}</button>
+      <button className="button button-primary button-full" type="submit" disabled={submitting}>{submitting ? "Enviando…" : "Enviar instrucciones"} <span aria-hidden="true">→</span></button>
     </form>
     <p className="auth-bottom"><Link to="/login">Volver al inicio de sesión</Link></p>
-  </section></main>;
+  </AuthSplitLayout>;
 }

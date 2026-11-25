@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
-import { CalendarDays, Hash, QrCode } from "lucide-react";
+import { CalendarDays, Camera, Hash, QrCode } from "lucide-react";
 import { apiRequest } from "../api/http";
 import Feedback from "../components/Feedback";
 import Skeleton from "../components/Skeleton";
 import AttendanceCalendar from "../components/AttendanceCalendar";
+import AttendanceQrScanner from "../components/AttendanceQrScanner";
 import type { ApiEnvelope } from "../types/api";
 
 type RecordRow = { id?: string; subject_name?: string; status?: string; recorded_at?: string; source?: string };
@@ -18,6 +19,7 @@ export default function AttendancePage() {
   const [total, setTotal] = useState(0);
   const [mode, setMode] = useState<"code" | "qr">("code");
   const [value, setValue] = useState("");
+  const [scannerOpen, setScannerOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -42,18 +44,19 @@ export default function AttendancePage() {
     return () => controller.abort();
   }, [load]);
 
-  async function checkIn(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault(); setError(""); setSuccess(""); setSubmitting(true);
-    let token = value.trim();
-    if (mode === "qr" && token.startsWith("{")) {
-      try { token = (JSON.parse(token) as { qr_token?: string }).qr_token || token; } catch { /* También se acepta el token directo. */ }
-    }
+  async function checkIn(method: "code" | "qr", credential: string) {
+    setError(""); setSuccess(""); setSubmitting(true);
     try {
-      await apiRequest(`/api/v1/attendance/${mode}/check-in`, { method: "POST", body: JSON.stringify(mode === "code" ? { code: token } : { qr_token: token }) });
+      await apiRequest(`/api/v1/attendance/${method}/check-in`, { method: "POST", body: JSON.stringify(method === "code" ? { code: credential } : { qr_token: credential }) });
       setSuccess("Asistencia registrada."); setValue(""); setRevision(v => v + 1);
       if (page === 1) await load(); else setPage(1);
     } catch (error) { setError(error instanceof Error ? error.message : "No se pudo registrar la asistencia."); }
     finally { setSubmitting(false); }
+  }
+
+  function submitPin(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!submitting) void checkIn("code", value.trim());
   }
 
   return <div className="page attendance-workspace">
@@ -62,14 +65,28 @@ export default function AttendancePage() {
     <Feedback error={error} success={success} />
     <section className="panel attendance-entry">
       <div className="panel-heading"><h2>Registrar entrada</h2><div className="role-tabs" role="group" aria-label="Método para registrar asistencia">
-        <button className={`role-tab ${mode === "code" ? "selected" : ""}`} aria-pressed={mode === "code"} disabled={submitting} onClick={() => { setMode("code"); setValue(""); }}><Hash size={15} /> PIN</button>
+        <button className={`role-tab ${mode === "code" ? "selected" : ""}`} aria-pressed={mode === "code"} disabled={submitting} onClick={() => { setMode("code"); setValue(""); setScannerOpen(false); }}><Hash size={15} /> PIN</button>
         <button className={`role-tab ${mode === "qr" ? "selected" : ""}`} aria-pressed={mode === "qr"} disabled={submitting} onClick={() => { setMode("qr"); setValue(""); }}><QrCode size={15} /> QR</button>
       </div></div>
-      <form className="inline-controls" onSubmit={checkIn}>
-        <label className="field"><span>{mode === "code" ? "PIN de 4 dígitos" : "Token del código QR"}</span>
-          <input required value={value} onChange={event => setValue(event.target.value)} inputMode={mode === "code" ? "numeric" : "text"} pattern={mode === "code" ? "[0-9]{4}" : undefined} maxLength={mode === "code" ? 4 : undefined} placeholder={mode === "code" ? "0000" : "Pega el contenido del QR"} />
-        </label><button className="button button-primary" disabled={submitting}>{submitting ? "Registrando…" : "Registrar asistencia"}</button>
-      </form>
+      {mode === "code" ? (
+        <form className="inline-controls" onSubmit={submitPin}>
+          <label className="field"><span>PIN de 4 dígitos</span>
+            <input required value={value} onChange={event => setValue(event.target.value)} inputMode="numeric" pattern="[0-9]{4}" maxLength={4} placeholder="0000" />
+          </label>
+          <button className="button button-primary" disabled={submitting}>{submitting ? "Registrando…" : "Registrar asistencia"}</button>
+        </form>
+      ) : scannerOpen ? (
+        <AttendanceQrScanner onClose={() => setScannerOpen(false)} onScan={credential => {
+          setScannerOpen(false);
+          void checkIn("qr", credential);
+        }} />
+      ) : (
+        <button type="button" className="button button-primary" disabled={submitting} onClick={() => {
+          setError(""); setSuccess(""); setScannerOpen(true);
+        }}>
+          <Camera size={17} aria-hidden="true" /> {submitting ? "Registrando…" : "Abrir cámara"}
+        </button>
+      )}
     </section>
     <div className="academic-split attendance-overview">
       <section className="panel"><h2 className="icon-heading"><CalendarDays size={20} /> Calendario</h2><AttendanceCalendar revision={revision} /></section>

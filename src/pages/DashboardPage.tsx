@@ -10,6 +10,7 @@ import { useAuth } from "../auth/AuthContext";
 import { activeRole, canAccessInstitutionRoute } from "../auth/roleRouting";
 import AttendanceCalendar from "../components/AttendanceCalendar";
 import AcademicOverview from "../components/AcademicOverview";
+import CareerCharts, { type CareerCounts } from "../components/CareerCharts";
 import Feedback from "../components/Feedback";
 import Skeleton from "../components/Skeleton";
 import UserAvatar from "../components/UserAvatar";
@@ -20,7 +21,7 @@ import "./dashboard.css";
 type ClassRow = { id: string; subject_name?: string; group_name?: string; period_name?: string; teacher_name?: string };
 type Session = { id: string; subject_name?: string; group_name?: string; status: string; started_at?: string };
 type Report = { active_sessions: number; attendance_records: number };
-type Career = { students: number; teachers: number; tutors: number; groups: number; classes: number; active_sessions: number; pending_justifications: number; career_name: string };
+type Career = CareerCounts & { career_name: string };
 type Action = { label: string; detail: string; to: string; icon: LucideIcon };
 type Metric = { label: string; value?: number; icon: LucideIcon; to: string };
 
@@ -200,6 +201,7 @@ export default function DashboardPage() {
           ))}
         </section>
 
+        {director && summary.career && <CareerCharts counts={summary.career} />}
         {(institutionStaff || director || role === "tutor") && <AcademicOverview institution={institutionStaff} revision={revision} />}
 
         {showClasses && <section className="home-panel home-classes" aria-labelledby="home-classes-title">

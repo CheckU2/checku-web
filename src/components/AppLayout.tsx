@@ -167,7 +167,12 @@ export default function AppLayout() {
          <button className="header-action" onClick={() => void handleLogout()} disabled={loggingOut} title="Cerrar sesión" aria-label="Cerrar sesión"><LogOut size={18} /></button>
        </div>
      </header>
-     <main className="page-content checku-page"><Outlet key={contextKey} /></main>
+     <main className="page-content checku-page">{user?.email_verified === false && location.pathname !== "/account" && (
+       <aside className="account-email-notice" aria-label="Correo pendiente">
+         <span>Tu correo está pendiente de verificar.</span>
+         <NavLink to="/account#correo">Verificar correo</NavLink>
+       </aside>
+     )}<Outlet key={contextKey} /></main>
    </div>
  </div>;
 }

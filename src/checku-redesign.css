@@ -130,3 +130,22 @@ body{background:#f6f9f7;color:#172B4D} h1,h2,h3{letter-spacing:-.045em} h1{font-
   .checku-sidebar .sidebar-close { display: none; }
   .checku-page { padding-inline: clamp(22px, 3vw, 42px); }
 }
+
+.register-password-control { position: relative; }
+.auth-split .register-password-control input { padding-right: 52px; }
+.register-password-control button {
+  position: absolute;
+  inset: 4px 4px 4px auto;
+  width: 44px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #475467;
+  cursor: pointer;
+}
+.register-password-control button:hover { background: #e9efec; }
+.register-password-match { color: var(--success); }
+.register-password-mismatch { color: var(--danger); }
+.register-password-match:empty, .register-password-mismatch:empty { margin-top: -7px; }

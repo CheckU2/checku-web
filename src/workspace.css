@@ -403,3 +403,75 @@ input[type=checkbox], input[type=radio] { appearance: auto; accent-color: var(--
 .branch-link .nav-count { min-width: 1.3rem; padding-inline: .2rem; }
 .heat-wrap .heat-table { width: max-content; min-width: min(100%,420px); }
 .heat-wrap .heat-table th { min-width: 54px; }
+
+/* Let each workspace adapt to its content width, including the space used by the sidebar. */
+.checku-page { container-type: inline-size; }
+.checku-page > :is(.page, .home-page), .checku-page :is(.field, .panel-heading, .topbar-breadcrumb) { min-width: 0; }
+.checku-page :is(.page, .home-page) { overflow-wrap: anywhere; }
+.page > *, .home-grid > *, .home-secondary > * { min-width: 0; }
+.checku-page .page-heading, .checku-page .panel-heading { flex-wrap: wrap; }
+.checku-page :is(.button, .role-tab) { max-width: 100%; white-space: normal; }
+.checku-page .metric-grid { grid-template-columns: repeat(auto-fit, minmax(min(155px, 100%), 1fr)); }
+.checku-page .checku-card-grid { grid-template-columns: repeat(auto-fill, minmax(min(245px, 100%), 1fr)); }
+.checku-page .people-grid { grid-template-columns: repeat(auto-fill, minmax(min(220px, 100%), 1fr)); }
+.checku-page .quick-links { grid-template-columns: repeat(auto-fit, minmax(min(170px, 100%), 1fr)); }
+.checku-page .home-metrics {
+  grid-auto-flow: row;
+  grid-template-columns: repeat(auto-fit, minmax(min(145px, 100%), 1fr));
+}
+.checku-topbar :is(.topbar-left, .topbar-breadcrumb, .header-profile, .user-details) { min-width: 0; }
+.checku-topbar .topbar-breadcrumb strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.checku-topbar :is(.header-action, .mobile-menu-button) { flex-shrink: 0; }
+
+@container (max-width: 920px) {
+  .checku-page .home-grid { grid-template-columns: minmax(0, 1fr); }
+  .checku-page .home-secondary { grid-template-columns: repeat(auto-fit, minmax(min(265px, 100%), 1fr)); }
+}
+@container (max-width: 690px) {
+  .checku-page :is(.academic-split, .management-grid, .catalog-layout:has(.catalog-form), .justification-workspace) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@container (max-width: 420px) {
+  .checku-page :is(.resource-form, .details-grid, .profile-editor-grid, .home-action-grid) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .checku-page .inline-controls > .field { min-width: 0; flex-basis: 100%; }
+}
+
+.account-email-notice {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 5px 14px;
+  padding: 10px 14px;
+  margin-bottom: 16px;
+  border: 1px solid #ecd6a7;
+  border-radius: 12px;
+  background: #fff9e9;
+  color: #604713;
+  font-size: .875rem;
+}
+.account-email-notice a { color: inherit; font-weight: 700; text-decoration: underline; }
+.account-security { scroll-margin-top: 96px; }
+.account-security .form-stack { max-width: 540px; }
+.account-security .feedback { margin-top: 14px; }
+.account-email-address { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.account-steps { display: grid; gap: 6px; padding-inline-start: 20px; margin-block: 12px 18px; }
+
+.career-charts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(235px, 100%), 1fr));
+  gap: 16px;
+}
+.career-chart ul { display: grid; gap: 12px; padding: 0; margin: 0; list-style: none; }
+.career-chart li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 10px; }
+.career-chart-track {
+  grid-column: 1 / -1;
+  display: block;
+  height: 7px;
+  overflow: hidden;
+  border-radius: 10px;
+  background: #eee8f6;
+}
+.career-chart-track > span { display: block; height: 100%; border-radius: inherit; background: #7752b4; }

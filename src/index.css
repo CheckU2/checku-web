@@ -238,3 +238,16 @@ tbody tr:hover { background: #fbfcfe; }
 .checku-person-profile{display:flex;gap:16px;align-items:center;padding:14px 6px;border-bottom:1px solid #e1e9eb}
 .checku-person-profile small{display:block;color:#6F7F8A}
 .checku-person-profile p{margin:5px 0 0}
+
+.attendance-qr-scanner {
+  display: grid;
+  justify-items: start;
+  gap: 12px;
+}
+.attendance-qr-scanner video {
+  width: min(100%, 520px);
+  max-height: 360px;
+  object-fit: contain;
+  border-radius: 12px;
+  background: #111827;
+}
