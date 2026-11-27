@@ -1,3 +1,5 @@
+import { matchesMatricula } from "../utils/matricula";
+import { usePagination } from "../components/Pagination";
 import { formatApiTime } from "../utils/dateTime";
 import ContainerTransform from "../components/ContainerTransform";
 import AcademicCardSkeleton, { RosterSkeleton } from "../components/AcademicCardSkeleton";
@@ -10,7 +12,7 @@ import Feedback from '../components/Feedback';
 import type { ApiEnvelope } from '../types/api';
 
 type Row = Record<string, unknown> & {id?: string; status?: string; class_id?: string; subject_name?: string; group_name?: string; period_name?: string; teacher_id?: string; qr?: {image?: string; code?: string}};
-type Person = {student_id: string; full_name: string; status: string; recorded_at?: string};
+type Person = {student_id: string; full_name: string; matricula?: string | null; status: string; recorded_at?: string};
 type Report = {session: Row; students: Person[]; counts: Record<string,number>; departure_tracking: boolean};
 const id = (r: Row) => String(r.id ?? r._id ?? '');
 const statusName: Record<string,string> = {present:'Asistió', late:'Retardo', absent:'Faltó', excused:'Justificado', pending:'Pendiente', closed:'Finalizada', active:'En curso', scheduled:'Programada'};
@@ -27,6 +29,7 @@ export default function SessionsPage() {
   const [studentStatus,setStudentStatus] = useState('');
   const [open,setOpen] = useState(false);
   const [qr,setQr] = useState<Row['qr']>();
+  const [reportMatricula, setReportMatricula] = useState("");
   const [reportQuery, setReportQuery] = useState("");
   const [report,setReport] = useState<Report | null>(null);
   const [reportLoading,setReportLoading] = useState(false);
@@ -46,6 +49,9 @@ export default function SessionsPage() {
     finally { setLoading(false); }
   },[]);
   useEffect(()=>{void load();},[load]);
+  const matchedStudents = report?.students.filter(person => (!studentStatus || person.status === studentStatus) && matchesMatricula(person.matricula, reportMatricula) &&
+    person.full_name.toLocaleLowerCase().includes(reportQuery.trim().toLocaleLowerCase())) ?? [];
+  const reportPages = usePagination(matchedStudents, JSON.stringify([report?.session?.id, reportQuery, reportMatricula, studentStatus]));
   const visible = useMemo(()=>rows.filter(row => (!filter || String(row.class_id) === filter) && (!stateFilter || row.status === stateFilter)), [rows,filter,stateFilter]);
   async function create(e: FormEvent) {
     e.preventDefault(); if(!selected)return;
@@ -64,7 +70,7 @@ export default function SessionsPage() {
     reportRequest.current?.abort();
     const controller = new AbortController();
     reportRequest.current = controller;
-    setReportQuery(''); setStudentStatus(''); setReport(null); setReportLoading(true); setError('');
+    setReportQuery(''); setReportMatricula(''); setStudentStatus(''); setReport(null); setReportLoading(true); setError('');
     try {
       const result = await apiRequest<ApiEnvelope<Report>>(`/api/v1/sessions/${id(row)}/report`, { signal: controller.signal });
       if (!controller.signal.aborted) setReport(result.data);
@@ -100,13 +106,14 @@ export default function SessionsPage() {
         <section className="panel checku-modal academic-dialog" role="dialog" aria-modal="true" aria-label="Reporte de asistencia">
           {report ? <><div className="panel-heading"><div><h2>{String(report.session.subject_name??'Reporte de sesión')}</h2><p className="muted">{String(report.session.group_name??'Grupo')} · {statusName[String(report.session.status)]??String(report.session.status)}</p></div><CloseButton onClick={closeReport} /></div>
       <div className="checku-stats session-summary"><div><strong>{report.counts.present??0}</strong><span>Asistieron</span></div><div><strong>{report.counts.late??0}</strong><span>Retardos</span></div><div><strong>{report.counts.absent??0}</strong><span>Faltaron</span></div><div><strong>{report.counts.excused??0}</strong><span>Justificadas</span></div><div><strong>{report.counts.pending??0}</strong><span>Pendientes</span></div></div>
-      <div className="academic-filters"><label className="field session-roster-search"><span>Buscar alumno</span><input value={reportQuery} onChange={event => setReportQuery(event.target.value)} placeholder="Nombre del alumno" /></label><label className="field session-roster-search"><span>Estado</span><select value={studentStatus} onChange={event => setStudentStatus(event.target.value)}><option value="">Todos</option>{["present","late","excused","absent","pending"].map(key => <option value={key} key={key}>{statusName[key]}</option>)}</select></label></div>
+      <div className="academic-filters"><label className="field session-roster-search"><span>Buscar alumno</span><input value={reportQuery} onChange={event => setReportQuery(event.target.value)} placeholder="Nombre del alumno" /></label><label className="field"><span>Matrícula exacta</span><input type="search" maxLength={40} value={reportMatricula} onChange={event => setReportMatricula(event.target.value)} placeholder="Ej. 202600123" /></label><label className="field session-roster-search"><span>Estado</span><select value={studentStatus} onChange={event => setStudentStatus(event.target.value)}><option value="">Todos</option>{["present","late","excused","absent","pending"].map(key => <option value={key} key={key}>{statusName[key]}</option>)}</select></label></div>
       <div className="table-wrap session-student-list"><table><thead><tr><th>Alumno</th><th>Asistencia</th><th>Registro</th></tr></thead><tbody>
-        {report.students.filter(person => (!studentStatus || person.status === studentStatus) && person.full_name.toLocaleLowerCase().includes(reportQuery.trim().toLocaleLowerCase())).map(person => <tr key={person.student_id}>
-          <td><strong>{person.full_name}</strong></td><td><span className={`status ${person.status === "absent" ? "status-inactive" : ["present", "late", "excused"].includes(person.status) ? "status-active" : "status-neutral"}`}>{statusName[person.status] ?? person.status}</span></td>
+        {reportPages.items.map(person => <tr key={person.student_id}>
+          <td><strong>{person.full_name}</strong>{person.matricula && <small className="request-reason">Matrícula {person.matricula}</small>}</td><td><span className={`status ${person.status === "absent" ? "status-inactive" : ["present", "late", "excused"].includes(person.status) ? "status-active" : "status-neutral"}`}>{statusName[person.status] ?? person.status}</span></td>
           <td>{formatApiTime(person.recorded_at, { hour: "2-digit", minute: "2-digit" }, user?.timezone)}</td>
         </tr>)}</tbody></table></div>
-      {!report.students.some(person => (!studentStatus || person.status === studentStatus) && person.full_name.toLocaleLowerCase().includes(reportQuery.trim().toLocaleLowerCase())) && <p className="empty-state">Sin alumnos para este filtro.</p>}</> : <>
+      {reportPages.controls}
+      {!matchedStudents.length && <p className="empty-state">Sin alumnos para este filtro.</p>}</> : <>
             <div className="panel-heading"><h2>Reporte de asistencia</h2><CloseButton onClick={closeReport} /></div>
             <RosterSkeleton label="Cargando reporte de asistencia" />
           </>}

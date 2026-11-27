@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { apiRequest } from "../api/http";
 import Feedback from "./Feedback";
+import { usePagination } from "./Pagination";
 import Skeleton from "./Skeleton";
 
 type Session = { id: string; date: string; subject: string; started_at: string; status: string };
@@ -12,7 +13,7 @@ const time = new Intl.DateTimeFormat("es-MX", { hour: "numeric", minute: "2-digi
 const statuses: Record<string, string> = { present: "Presente", late: "Retardo", absent: "Falta", excused: "Justificada", pending: "En curso", pending_review: "En revisión", invalidated: "Invalidada" };
 const today = () => new Intl.DateTimeFormat("sv-SE", { timeZone: zone, year: "numeric", month: "2-digit", day: "2-digit" }).format();
 
-export default function AttendanceCalendar({ studentId, revision = 0 }: { studentId?: string; revision?: number }) {
+export default function AttendanceCalendar({ studentId, revision = 0, agenda = false }: { studentId?: string; revision?: number; agenda?: boolean }) {
   const [date, setDate] = useState(today);
   const [year, month, day] = date.split("-").map(Number);
   const [sessions, setSessions] = useState<Session[]>([]);
@@ -46,8 +47,14 @@ export default function AttendanceCalendar({ studentId, revision = 0 }: { studen
     entries.push(session);
     grouped.set(session.date, entries);
   }
-  const selected = grouped.get(date) ?? [];
-  return <div className="attendance-calendar">
+  const selected = [...(grouped.get(date) ?? [])].sort((a, b) => Date.parse(a.started_at) - Date.parse(b.started_at));
+  const dayPages = usePagination(selected, date, agenda ? 4 : 8);
+  const counts = selected.reduce<Record<string, number>>((totals, session) => {
+    totals[session.status] = (totals[session.status] ?? 0) + 1;
+    return totals;
+  }, {});
+  return <div className={agenda ? "attendance-calendar attendance-agenda" : "attendance-calendar"}>
+    <div className="calendar-month">
     <div className="calendar-controls">
       <button className="icon-button" onClick={() => changeMonth(-1)} disabled={year === 2000 && month === 1} aria-label="Mes anterior"><ChevronLeft size={20} /></button>
       <strong aria-live="polite">{monthName.format(start)}</strong>
@@ -70,10 +77,16 @@ export default function AttendanceCalendar({ studentId, revision = 0 }: { studen
         </button>;
       })}
     </div>
+    {agenda && <div className="calendar-key"><span><i className="calendar-day-recorded" /> Con sesiones</span><span><i className="calendar-day-absent" /> Con faltas</span></div>}
+    </div>
     <div className="calendar-detail" aria-live="polite">
       <h3>{dayName.format(new Date(`${date}T00:00:00Z`))}</h3>
-      {loading ? <Skeleton count={2} label="Cargando clases del día" /> : !error && (selected.length ? <ul className="stagger-list">{selected.map(session => <li key={session.id}><div><strong>{session.subject}</strong><small>{time.format(new Date(session.started_at))}</small></div>
+      {agenda && !!selected.length && <ul className="agenda-summary" aria-label="Resumen del día">
+        {Object.entries(counts).map(([status, total]) => <li key={status}><strong>{total}</strong> {statuses[status] ?? status}</li>)}
+      </ul>}
+      {loading ? <Skeleton count={2} label="Cargando clases del día" /> : !error && (selected.length ? <ul className="stagger-list agenda-sessions">{dayPages.items.map(session => <li key={session.id}><div><strong>{session.subject}</strong><small>{time.format(new Date(session.started_at))}</small></div>
         <span className={`status ${session.status === "absent" ? "status-inactive" : ["present", "late", "excused"].includes(session.status) ? "status-active" : "status-neutral"}`}>{statuses[session.status] || session.status}</span></li>)}</ul> : <p className="muted">Sin clases registradas este día.</p>)}
+      {dayPages.controls}
     </div>
   </div>;
 }

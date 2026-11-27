@@ -1,3 +1,4 @@
+import { matchesMatricula } from "../utils/matricula";
 import useConfirmation from "../components/useConfirmation";
 import ContainerTransform from "../components/ContainerTransform";
 import AcademicCardSkeleton, { RosterSkeleton } from "../components/AcademicCardSkeleton";
@@ -43,6 +44,7 @@ export default function ClassesPage() {
   const [scopes, setScopes] = useState<InstitutionScopes | null>(null);
   const institutionId = user?.active_context?.institution_id ?? user?.institution_id;
   const isInstitutionAdmin = role === "institution_admin" || role === "institution_owner";
+  const [rosterMatricula, setRosterMatricula] = useState("");
   const [rosterQuery, setRosterQuery] = useState("");
   const [rows, setRows] = useState<ClassRow[]>([]);
   const [catalogs, setCatalogs] = useState<Record<string, ResourceRecord[]>>({});
@@ -107,7 +109,7 @@ export default function ClassesPage() {
   async function viewStudents(row: ClassRow) {
     const classId = id(row);
     if (rosterClass === classId) { setRosterClass(null); return; }
-    setCalendarStudent(null); setRosterQuery(""); setRosterClass(classId); setRosterBusy(true); setRoster([]);
+    setCalendarStudent(null); setRosterQuery(""); setRosterMatricula(""); setRosterClass(classId); setRosterBusy(true); setRoster([]);
     try {
       const response = await apiRequest<{data: ResourceRecord[]}>(`/api/v1/classes/${classId}/students`);
       setRoster(response.data ?? []);
@@ -170,7 +172,7 @@ export default function ClassesPage() {
     finally { setBusy(false); }
   }
   const viewCommunity = useCallback(async (row: ClassRow) => {
-    setRosterQuery(""); setCalendarStudent(null); setCommunityClass(row); setCommunity(null); setCommunityBusy(true); setError('');
+    setRosterQuery(""); setRosterMatricula(""); setCalendarStudent(null); setCommunityClass(row); setCommunity(null); setCommunityBusy(true); setError('');
     try {
       const response = await apiRequest<{data: {students: ResourceRecord[]; teacher: ResourceRecord | null; tutors: ResourceRecord[]}}>(`/api/v1/classes/${id(row)}/community`);
       setCommunity(response.data);
@@ -204,13 +206,15 @@ export default function ClassesPage() {
     setCreatedClass(null); setError(""); setSuccess(""); setShowCreate(true);
   }
 
-  const filterPeople = (people: ResourceRecord[]) => people.filter(person => String(person.full_name ?? "").toLocaleLowerCase().includes(rosterQuery.trim().toLocaleLowerCase()));
+  const assignedTutor = community?.tutors[0];
+  const teacherIsTutor = Boolean(community?.teacher && assignedTutor && id(community.teacher) === id(assignedTutor));
+  const filterPeople = (people: ResourceRecord[]) => people.filter(person => matchesMatricula(person.matricula, rosterMatricula) && String(person.full_name ?? "").toLocaleLowerCase().includes(rosterQuery.trim().toLocaleLowerCase()));
   function personCard(person: ResourceRecord, personRole?: string, attendance = false) {
     const name = String(person.full_name ?? "Sin nombre");
     const avatar = typeof person.avatar_url === "string" ? person.avatar_url : typeof person.avatar === "string" ? person.avatar : null;
     return <li className="roster-row" key={id(person)}>
       <UserAvatar name={name} userId={id(person)} avatar={avatar} size={38} />
-      <div className="roster-name"><strong>{name}</strong>{personRole && <small>{personRole}</small>}</div>
+      <div className="roster-name"><strong>{name}</strong>{personRole && <small>{personRole}</small>}{typeof person.matricula === "string" && person.matricula && <small>Matrícula {person.matricula}</small>}</div>
       {attendance && calendarAccess && <button className="icon-button" title="Ver asistencia" aria-label={`Ver asistencia de ${name}`} onClick={() => setCalendarStudent(person)}><ClipboardCheck size={18} /></button>}
     </li>;
   }
@@ -265,7 +269,7 @@ export default function ClassesPage() {
         <div className="panel-heading"><h2>{calendarStudent ? `Asistencia de ${String(calendarStudent.full_name)}` : "Alumnos inscritos"}</h2><CloseButton onClick={() => { setRosterClass(null); setCalendarStudent(null); }} /></div>
         {calendarStudent ? <><button className="button button-secondary button-small" onClick={() => setCalendarStudent(null)}>Volver a inscritos</button><AttendanceCalendar studentId={id(calendarStudent)} /></> :
           rosterBusy ? <RosterSkeleton label="Cargando inscritos" /> : <>
-            <label className="field"><span className="sr-only">Buscar alumno</span><input value={rosterQuery} onChange={event => setRosterQuery(event.target.value)} placeholder="Buscar por nombre" /></label>
+            <label className="field"><span className="sr-only">Buscar alumno</span><input value={rosterQuery} onChange={event => setRosterQuery(event.target.value)} placeholder="Buscar por nombre" /></label>{!student && <label className="field"><span>Matrícula exacta</span><input type="search" maxLength={40} value={rosterMatricula} onChange={event => setRosterMatricula(event.target.value)} placeholder="Ej. 202600123" /></label>}
             <ul className="roster-frame roster-list stagger-list">{filterPeople(roster).map(person => personCard(person, undefined, true))}</ul>
             {!filterPeople(roster).length && <p className="empty-state">No se encontraron alumnos.</p>}
           </>}
@@ -277,10 +281,10 @@ export default function ClassesPage() {
         {calendarStudent ? <><button className="button button-secondary button-small" onClick={() => setCalendarStudent(null)}>Volver a participantes</button><AttendanceCalendar studentId={id(calendarStudent)} /></> :
           communityBusy ? <RosterSkeleton label="Cargando participantes" /> : community ? <>
             <h3>Equipo académico</h3>
-            <ul className="roster-frame roster-list stagger-list">{community.teacher && personCard(community.teacher, "Docente")}{community.tutors.map(tutor => personCard(tutor, "Tutor asignado"))}</ul>
-            {!community.tutors.length && <p className="muted small-text">Sin tutor asignado.</p>}
+            <ul className="roster-frame roster-list stagger-list">{community.teacher && personCard(community.teacher, teacherIsTutor ? "Docente · Tutor asignado" : "Docente")}{assignedTutor && !teacherIsTutor && personCard(assignedTutor, "Tutor asignado")}</ul>
+            {!assignedTutor && <p className="muted small-text">Sin tutor asignado.</p>}
             <div className="panel-heading roster-heading"><h3>{student ? "Compañeros" : "Alumnos"} <span className="pill">{community.students.length}</span></h3>
-              <label className="field"><span className="sr-only">Buscar por nombre</span><input value={rosterQuery} onChange={event => setRosterQuery(event.target.value)} placeholder="Buscar por nombre" /></label>
+              <label className="field"><span className="sr-only">Buscar por nombre</span><input value={rosterQuery} onChange={event => setRosterQuery(event.target.value)} placeholder="Buscar por nombre" /></label>{!student && <label className="field"><span>Matrícula exacta</span><input type="search" maxLength={40} value={rosterMatricula} onChange={event => setRosterMatricula(event.target.value)} placeholder="Ej. 202600123" /></label>}
             </div>
             <ul className="roster-frame roster-list stagger-list">{filterPeople(community.students).map(person => personCard(person, undefined, true))}</ul>
             {!filterPeople(community.students).length && <p className="empty-state">No hay alumnos que coincidan.</p>}

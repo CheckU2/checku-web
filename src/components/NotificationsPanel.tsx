@@ -36,11 +36,11 @@ export function useWorkspaceNotifications(contextKey: string, reviewJustificatio
             icon: FileCheck2,
           })),
         })) : Promise.resolve(emptySource),
-        institutionId ? listRoleRequests(institutionId, "pending", controller.signal).then(response => ({
-          count: response.data.length,
-          items: response.data.slice(0, 5).map(item => ({
+        institutionId ? listRoleRequests(institutionId, "pending", controller.signal).then(response => response.data.filter(item => item.requested_role === "teacher")).then(requests => ({
+          count: requests.length,
+          items: requests.slice(0, 5).map(item => ({
             key: "role-" + item.id, title: item.full_name || item.email || "Solicitud docente",
-            detail: "Solicitud docente por revisar", to: "/institution#solicitudes-docentes", icon: UserCheck,
+            detail: "Solicitud docente por revisar", to: "/institution?solicitud=" + encodeURIComponent(item.id) + "#solicitudes-docentes", icon: UserCheck,
           })),
         })) : Promise.resolve(emptySource),
       ]);
@@ -74,17 +74,19 @@ export function useWorkspaceNotifications(contextKey: string, reviewJustificatio
   };
 }
 
-export default function NotificationsPanel({ feed, verifyEmail, waitingApproval }: {
+export default function NotificationsPanel({ feed, verifyEmail, waitingApproval, missingMatricula }: {
   feed: ReturnType<typeof useWorkspaceNotifications>;
   verifyEmail: boolean;
   waitingApproval: boolean;
+  missingMatricula: boolean;
 }) {
   const panelId = useId();
   const { open, toggle, close, root, trigger } = useDisclosure();
-  const items: Notification[] = [...feed.justifications.items, ...feed.requests.items];
+  const items: Notification[] = [...feed.requests.items, ...feed.justifications.items];
   if (verifyEmail) items.push({ key: "email", title: "Verifica tu correo", detail: "Confirma la dirección de tu cuenta", to: "/account#correo", icon: MailCheck });
+  if (missingMatricula) items.push({ key: "matricula", title: "Agrega tu matrícula", detail: "Completa los datos de tu perfil", to: "/account?editar=1&campo=matricula", icon: UserCheck });
   if (waitingApproval) items.push({ key: "approval", title: "Aprobación institucional", detail: "Consulta el estado de tu cuenta", to: "/pending-approval", icon: UserCheck });
-  const count = feed.justifications.count + feed.requests.count + Number(verifyEmail) + Number(waitingApproval);
+  const count = feed.justifications.count + feed.requests.count + Number(verifyEmail) + Number(waitingApproval) + Number(missingMatricula);
 
   return (
     <div className="notification-control" ref={root}>

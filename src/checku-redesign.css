@@ -72,6 +72,21 @@ body{background:#f6f9f7;color:#172B4D} h1,h2,h3{letter-spacing:-.045em} h1{font-
 .justification-image { display: block; width: min(100%, 380px); max-height: 260px; object-fit: contain; object-position: left center; border-radius: 8px; margin: 8px 0; }
 
 .attendance-calendar { display: grid; gap: 16px; margin-top: 16px; }
+.calendar-month { display: grid; align-content: start; gap: 8px; }
+.attendance-agenda { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
+.attendance-agenda .calendar-detail { border-top: 0; border-inline-start: 1px solid var(--line); padding: 0 0 0 14px; min-width: 0; }
+.calendar-key { display: flex; flex-wrap: wrap; gap: 5px 12px; color: var(--muted); font-size: .75rem; }
+.calendar-key span { display: inline-flex; align-items: center; gap: 5px; }
+.calendar-key i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; }
+.calendar-detail .agenda-summary { display: flex; flex-wrap: wrap; margin-bottom: 8px; gap: 4px; }
+.calendar-detail .agenda-summary li { padding: 4px 7px; font-size: .75rem; gap: 4px; }
+.agenda-sessions li > div { min-width: 0; overflow-wrap: anywhere; }
+.attendance-agenda .pagination { flex-wrap: wrap; font-size: .75rem; gap: 5px; }
+.home-calendar { container-type: inline-size; }
+@container (max-width: 520px) {
+  .attendance-agenda { grid-template-columns: 1fr; }
+  .attendance-agenda .calendar-detail { border-inline-start: 0; border-top: 1px solid var(--line); padding: 12px 0 0; }
+}
 .calendar-controls { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
 .calendar-controls strong { min-width: min(10.5rem, 44%); text-align: center; text-transform: capitalize; }
 .calendar-grid { display: grid; grid-template-columns: repeat(7, minmax(0,1fr)); gap: clamp(3px, 1vw, 8px); }

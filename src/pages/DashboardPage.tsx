@@ -39,7 +39,7 @@ const actions = {
 } satisfies Record<string, Action>;
 
 const roleInfo: Record<string, { label: string; title: string; description: string; links: Action[] }> = {
-  student: { label: "Alumno", title: "Tu jornada académica", description: "Consulta tus clases y lleva al día tu asistencia.", links: [actions.attendance, actions.classes] },
+  student: { label: "Alumno", title: "Tu jornada académica", description: "Consulta tus clases y lleva al día tu asistencia.", links: [actions.attendance, actions.classes, actions.reviews] },
   teacher: { label: "Docente", title: "Tu aula, en orden", description: "Organiza tus clases, pasa lista y da seguimiento a los justificantes.", links: [actions.sessions, actions.classes, actions.reviews] },
   tutor: { label: "Tutor", title: "Seguimiento de tu grupo", description: "Consulta a tus alumnos y revisa las faltas que requieren tu atención.", links: [actions.reviews, actions.groups, actions.classes] },
   career_admin: { label: "Dirección de carrera", title: "Tu carrera, de un vistazo", description: "Consulta la actividad académica, las clases y los grupos asignados.", links: [actions.career, actions.groups, actions.classes] },
@@ -72,7 +72,7 @@ async function loadSummary(role: string, institutionId: string, showClasses: boo
   }));
   if (role === "student" || role === "teacher") tasks.push(get<Report>("/reports/dashboard").then(result => { summary.report = result.data; }));
   if (role === "teacher") tasks.push(get<Session[]>("/sessions?limit=4").then(result => { summary.sessions = result.data; }));
-  if (role === "teacher" || role === "tutor") {
+  if (role === "tutor") {
     tasks.push(get<{ pending: number }>("/justifications/notifications").then(result => { summary.pending = result.data.pending; }));
   }
   if (["career_admin", "career_director"].includes(role)) {
@@ -80,7 +80,10 @@ async function loadSummary(role: string, institutionId: string, showClasses: boo
   }
   if (institutionId && ["institution_owner", "institution_admin"].includes(role)) {
     tasks.push(listInstitutionMembers(institutionId).then(result => { summary.members = result.data.filter(member => member.membership_status === "active").length; }));
-    tasks.push(listRoleRequests(institutionId).then(result => { summary.pending = result.data.length; }));
+
+  }
+  if (institutionId && ["institution_owner", "institution_admin", "career_admin", "career_director"].includes(role)) {
+    tasks.push(listRoleRequests(institutionId, "pending", signal).then(result => { summary.pending = result.data.filter(request => request.requested_role === "teacher").length; }));
   }
   if (["admin", "super_admin", "platform_super_admin"].includes(role)) {
     tasks.push(listInstitutions().then(result => { summary.institutions = result.data.length; }));
@@ -230,8 +233,10 @@ export default function DashboardPage() {
       <aside className="home-secondary" aria-label="Perfil y actividad">
         <section className="home-panel home-profile">
           <div className="home-panel-heading"><h2>Mi perfil</h2><Link className="icon-button" to="/account?editar=1" aria-label="Editar perfil" title="Editar perfil"><Settings size={19} /></Link></div>
-          <div className="home-profile-person"><UserAvatar name={name} userId={user?.id ?? user?._id} avatar={user?.avatar || user?.avatar_url} size={64} /><div><strong>{name}</strong><span>{info.label}</span></div></div>
+          <div className="home-profile-person"><UserAvatar name={name} userId={user?.id ?? user?._id} avatar={user?.avatar || user?.avatar_url} size={64} /><div><strong>{name}</strong><span>{info.label}</span>{user?.matricula && <span>Matrícula {user.matricula}</span>}</div></div>
         </section>
+
+        {role === "student" && <section className="home-panel home-calendar"><div className="home-panel-heading"><h2>Calendario de asistencia</h2><Link className="home-text-link" to="/attendance">Ver historial</Link></div><AttendanceCalendar revision={revision} agenda /></section>}
 
         {director && <section className="home-panel">
           <div className="home-panel-heading"><h2>Operación de la carrera</h2><Link className="home-text-link" to="/career">Directorio</Link></div>
@@ -240,7 +245,6 @@ export default function DashboardPage() {
           </div>}
         </section>}
 
-        {role === "student" && <section className="home-panel home-calendar"><div className="home-panel-heading"><h2>Calendario de asistencia</h2></div><AttendanceCalendar revision={revision} /></section>}
 
         {role === "teacher" && <section className="home-panel" aria-labelledby="home-sessions">
           <div className="home-panel-heading"><h2 id="home-sessions">Sesiones recientes</h2><Link className="home-text-link" to="/sessions">Ver todas</Link></div>
@@ -251,10 +255,10 @@ export default function DashboardPage() {
           </li>)}</ul> : loading ? <Skeleton label="Cargando sesiones" /> : <p className="home-empty">{summary.sessions ? "Aún no hay sesiones." : "Sesiones no disponibles."}</p>}
         </section>}
 
-        {["teacher", "tutor", "institution_admin", "institution_owner"].includes(role) && <section className="home-panel home-inbox">
+        {(role === "tutor" || institutionStaff || (director && Boolean(institutionId))) && <section className="home-panel home-inbox">
           <span className="home-inbox-icon"><Bell size={21} /></span>
           <div><h2>Pendientes</h2>{loading && pending === undefined ? <Skeleton variant="field" count={1} label="Cargando pendientes" /> : <p>{pending === undefined ? "Pendientes no disponibles." : pending === 0 ? "Estás al día." : `${numberFormatter.format(pending)} ${pending === 1 ? "solicitud por revisar" : "solicitudes por revisar"}`}</p>}</div>
-          <Link className="home-text-link" to={role === "teacher" || role === "tutor" ? "/justifications" : "/institution"}>Abrir</Link>
+          <Link className="home-text-link" to={role === "teacher" || role === "tutor" ? "/justifications" : "/institution#solicitudes-docentes"}>Abrir</Link>
         </section>}
       </aside>
     </div>

@@ -67,6 +67,9 @@ function extractRows(response: unknown): Row[] {
   return [];
 }
 export default function AuditLogsPage() {
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const limit = 12;
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [catalogs, setCatalogs] = useState<Record<string, Row[]>>({});
   const [loading, setLoading] = useState(true);
@@ -75,9 +78,10 @@ export default function AuditLogsPage() {
     setLoading(true);
     setError("");
     try {
-      const response = await apiRequest<ApiEnvelope<AuditLog[]>>("/api/v1/audit-logs?limit=100");
+      const response = await apiRequest<ApiEnvelope<AuditLog[]>>(`/api/v1/audit-logs?page=${page}&limit=${limit}`);
       const nextLogs = Array.isArray(response.data) ? response.data : [];
       setLogs(nextLogs);
+      setTotal(response.meta?.total ?? nextLogs.length);
       const needed = new Set(nextLogs.map(log => text(log.entity)));
       needed.add("users");
       // Los catálogos pueden estar restringidos por permisos. Un fallo no debe ocultar la auditoría.
@@ -93,7 +97,7 @@ export default function AuditLogsPage() {
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo consultar la auditoría.");
     } finally { setLoading(false); }
-  }, []);
+  }, [page]);
   useEffect(() => { void load(); }, [load]);
   const lookups = useMemo(() => {
     const mapped: Record<string, Map<string, string>> = {};
@@ -159,6 +163,11 @@ export default function AuditLogsPage() {
             ))}</tbody>
           </table></div>
         )}
+        {total > limit && <nav className="pagination" aria-label="Paginación de auditoría">
+          <button className="button button-secondary button-small" disabled={loading || page === 1} onClick={() => setPage(page - 1)}>Anterior</button>
+          <span>Página {page} de {Math.ceil(total / limit)}</span>
+          <button className="button button-secondary button-small" disabled={loading || page * limit >= total} onClick={() => setPage(page + 1)}>Siguiente</button>
+        </nav>}
       </section>
     </div>
   );

@@ -119,7 +119,7 @@ export default function LoginPage() {
     <div className="auth-kicker">TU ESPACIO ACADÉMICO</div><h1>Bienvenido de nuevo<span className="auth-title-dot">.</span></h1><p className="muted">Inicia sesión para continuar con tu día en CheckU.</p>{pendingEmail ? (
     <form className="form-stack" onSubmit={verifyPendingEmail}>
       <Feedback warning={"Verifica " + pendingEmail + " para iniciar sesión."} title="Correo pendiente" />
-      <label className="field"><span>Código de seis dígitos</span><input inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} value={code} onChange={event => setCode(event.target.value.replace(/[^0-9]/g, ""))} required /></label>
+      <label className="field"><span>Código de seis dígitos</span><input placeholder="000000" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} value={code} onChange={event => setCode(event.target.value.replace(/[^0-9]/g, ""))} required /></label>
       <VerificationCountdown {...countdown} />
       <Feedback error={error} info={notice} />
       <button className="button button-primary" disabled={submitting || countdown.expired || code.length !== 6}>Verificar correo</button>

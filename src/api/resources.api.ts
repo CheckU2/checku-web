@@ -20,9 +20,10 @@ export function listResource<T extends ResourceRecord = ResourceRecord>(
   resource: string,
   page = 1,
   limit = 20,
-  filters: { search?: string; career_id?: string } = {},
+  filters: { search?: string; career_id?: string; matricula?: string } = {},
 ): Promise<ListResponse<T>> {
   const query = new URLSearchParams({ page: String(page), limit: String(limit) });
+  if (filters.matricula) query.set("matricula", filters.matricula);
   if (filters.search) query.set("search", filters.search);
   if (filters.career_id) query.set("career_id", filters.career_id);
   return apiRequest<ListResponse<T>>(`/api/v1/${resource}?${query}`);

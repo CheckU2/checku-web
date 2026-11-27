@@ -1,3 +1,4 @@
+import { matchesMatricula } from "../utils/matricula";
 import useConfirmation from "../components/useConfirmation";
 import ContainerTransform from "../components/ContainerTransform";
 import Skeleton from "../components/Skeleton";
@@ -68,6 +69,9 @@ export default function ResourcePage({ resource }: ResourcePageProps) {
   const { ask, confirmationDialog } = useConfirmation();
   const config = RESOURCE_CONFIGS[resource];
   const { user } = useAuth();
+  const [matricula, setMatricula] = useState("");
+  const [matriculaDraft, setMatriculaDraft] = useState("");
+  const peopleCatalog = ["students", "teachers", "tutors"].includes(resource);
   const [search, setSearch] = useState("");
   const [searchDraft, setSearchDraft] = useState("");
   const [careerFilter, setCareerFilter] = useState("");
@@ -90,8 +94,9 @@ export default function ResourcePage({ resource }: ResourcePageProps) {
   const catalog = ["groups", "academic-periods", "subjects", "careers"].includes(resource);
   const canManageCatalog = catalog && (institutionalAdmin || director && resource !== "careers");
   const canViewMembers = Boolean(institutionId && resource === "groups" && (canManageCatalog || role === "tutor"));
+  const [rosterMatricula, setRosterMatricula] = useState("");
   const [rosterSearch, setRosterSearch] = useState("");
-  const [groupRoster, setGroupRoster] = useState<{id: string; name: string; students: {id: string; full_name: string; email: string}[]} | null>(null);
+  const [groupRoster, setGroupRoster] = useState<{id: string; name: string; students: {id: string; full_name: string; email: string; matricula?: string | null}[]} | null>(null);
   const [rosterLoading, setRosterLoading] = useState(false);
   async function viewGroup(record: ResourceRecord) {
     const id = recordId(record);
@@ -99,8 +104,10 @@ export default function ResourcePage({ resource }: ResourcePageProps) {
     setRosterLoading(true);
     setError("");
     setGroupRoster(null);
+    setRosterSearch("");
+    setRosterMatricula("");
     try {
-      const result = await apiRequest<ApiEnvelope<{students: {id: string; full_name: string; email: string}[]}>>(`/api/v1/career-management/groups/${encodeURIComponent(id)}/members`);
+      const result = await apiRequest<ApiEnvelope<{students: {id: string; full_name: string; email: string; matricula?: string | null}[]}>>(`/api/v1/career-management/groups/${encodeURIComponent(id)}/members`);
       setGroupRoster({id, name: String(record.name ?? "Grupo"), students: result.data.students});
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "No se pudieron consultar los alumnos del grupo.");
@@ -116,13 +123,13 @@ export default function ResourcePage({ resource }: ResourcePageProps) {
     if (!config) return;
     setLoading(true); setError("");
     try {
-      const response = await listResource(config.path, targetPage, 20, { search, career_id: careerFilter });
+      const response = await listResource(config.path, targetPage, 20, { search, career_id: careerFilter, matricula: peopleCatalog ? matricula : undefined });
       setRecords(Array.isArray(response.data) ? response.data : []);
       setTotal(response.meta?.total ?? response.data?.length ?? 0);
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudieron cargar los datos.");
     } finally { setLoading(false); }
-  }, [config, page, search, careerFilter]);
+  }, [config, page, search, careerFilter, matricula, peopleCatalog]);
 
   useEffect(() => { void load(page); }, [load, page]);
 
@@ -229,7 +236,7 @@ export default function ResourcePage({ resource }: ResourcePageProps) {
       <form className="resource-form" onSubmit={handleSubmit}>
         {config.fields.map((field) => <label className={`field ${field.type === "textarea" ? "field-wide" : ""}`} key={field.name}>
           {field.type === "boolean" ? <span className="checkbox-field"><input type="checkbox" checked={Boolean(formValues[field.name] ?? (institutionId && !editingId && field.name === "is_active"))} onChange={(e) => setFormValues((old) => ({ ...old, [field.name]: e.target.checked }))} />{field.label}</span> : <><span>{field.label}{field.required ? " *" : ""}</span>{LOOKUP_RESOURCES[field.name] && !(resource === "students" && field.name === "student_id") ? <><select disabled={field.name === "career_id" && Boolean(assignedCareer || editingId)} value={field.name === "career_id" && assignedCareer ? assignedCareer : String(formValues[field.name] ?? "")} onChange={(e) => setFormValues((old) => ({ ...old, [field.name]: e.target.value, ...(field.name === "career_id" && resource === "groups" ? {period_id: ""} : {}) }))} required={field.required || Boolean(institutionId && (resource === "groups" && ["period_id", "career_id"].includes(field.name) || resource === "subjects" && field.name === "career_id"))}><option value="">{resource === "academic-periods" && field.name === "career_id" && institutionalAdmin ? "Toda la institución" : "Selecciona una opción"}</option>{(lookups[LOOKUP_RESOURCES[field.name]] ?? []).filter((row) => !institutionId || field.name !== "period_id" || resource !== "groups" || String(row.id ?? row._id) === formValues.period_id || (row.is_active !== false && (!row.career_id || String(row.career_id) === String(assignedCareer || formValues.career_id))))
-          .filter((row) => field.name !== "user_id" || resource !== "teachers" && resource !== "tutors" || row.role === (resource === "teachers" ? "teacher" : "tutor")).map((row) => { const id = String(row.id ?? row._id ?? ""); return <option key={id} value={id}>{lookupLabel(field.name, row)}</option>; })}</select>{lookupErrors[LOOKUP_RESOURCES[field.name]] && <small className="muted">No se pudo cargar la lista: {lookupErrors[LOOKUP_RESOURCES[field.name]]}</small>}</> : field.type === "textarea" ? <textarea value={String(formValues[field.name] ?? "")} onChange={(e) => setFormValues((old) => ({ ...old, [field.name]: e.target.value }))} required={field.required} rows={3} /> : <input type={field.type ?? "text"} value={String(formValues[field.name] ?? "")} onChange={(e) => setFormValues((old) => ({ ...old, [field.name]: e.target.value }))} required={field.required || Boolean(institutionId && resource === "academic-periods" && field.type === "date")} placeholder={field.placeholder} />}</>}
+          .filter((row) => field.name !== "user_id" || resource !== "teachers" && resource !== "tutors" || row.role === (resource === "teachers" ? "teacher" : "tutor")).map((row) => { const id = String(row.id ?? row._id ?? ""); return <option key={id} value={id}>{lookupLabel(field.name, row)}</option>; })}</select>{lookupErrors[LOOKUP_RESOURCES[field.name]] && <small className="muted">No se pudo cargar la lista: {lookupErrors[LOOKUP_RESOURCES[field.name]]}</small>}</> : field.type === "textarea" ? <textarea placeholder={field.placeholder ?? `Escribe ${field.label.toLowerCase()}`} value={String(formValues[field.name] ?? "")} onChange={(e) => setFormValues((old) => ({ ...old, [field.name]: e.target.value }))} required={field.required} rows={3} /> : <input type={field.type ?? "text"} value={String(formValues[field.name] ?? "")} onChange={(e) => setFormValues((old) => ({ ...old, [field.name]: e.target.value }))} required={field.required || Boolean(institutionId && resource === "academic-periods" && field.type === "date")} placeholder={field.placeholder ?? (field.type === "date" ? undefined : `Escribe ${field.label.toLowerCase()}`)} />}</>}
         </label>)}
         <div className="form-actions field-wide"><button className="button button-primary" type="submit" disabled={saving}>{saving ? "Guardando…" : editingId ? "Guardar cambios" : "Crear registro"}</button></div>
       </form>
@@ -240,18 +247,19 @@ export default function ResourcePage({ resource }: ResourcePageProps) {
         {!rosterLoading && <CloseButton onClick={() => setGroupRoster(null)} />}
       </div>
       {rosterLoading ? <Skeleton label="Cargando alumnos del grupo" /> : groupRoster && <>
-      <label className="field"><span>Buscar alumno</span><input value={rosterSearch} onChange={event => setRosterSearch(event.target.value)} placeholder="Nombre o correo" /></label>
+      <div className="academic-filters"><label className="field"><span>Buscar alumno</span><input value={rosterSearch} onChange={event => setRosterSearch(event.target.value)} placeholder="Nombre o correo" /></label><label className="field"><span>Matrícula exacta</span><input type="search" maxLength={40} value={rosterMatricula} onChange={event => setRosterMatricula(event.target.value)} placeholder="Ej. 202600123" /></label></div>
       {groupRoster.students.length === 0 ? <p>El grupo aún no tiene alumnos inscritos.</p> :
-        <ul className="roster-list roster-frame stagger-list">{groupRoster.students.filter(student => `${student.full_name} ${student.email}`.toLocaleLowerCase().includes(rosterSearch.trim().toLocaleLowerCase())).map(student => <li className="roster-row" key={student.id}><div className="roster-name"><strong>{student.full_name}</strong><small>{student.email}</small></div></li>)}</ul>}
+        <ul className="roster-list roster-frame stagger-list">{groupRoster.students.filter(student => matchesMatricula(student.matricula, rosterMatricula) && `${student.full_name} ${student.email}`.toLocaleLowerCase().includes(rosterSearch.trim().toLocaleLowerCase())).map(student => <li className="roster-row" key={student.id}><div className="roster-name"><strong>{student.full_name}</strong><small>{student.email}</small>{student.matricula && <small>Matrícula {student.matricula}</small>}</div></li>)}</ul>}
       </>}
     </section>}</ContainerTransform>
     <section className="panel"><div className="panel-heading"><div><h2>Registros</h2><p className="muted small-text">{total} en total</p></div><span className="pill">Página {page} de {pageCount}</span></div>
-      <form className="inline-controls catalog-filters" onSubmit={event => { event.preventDefault(); setPage(1); setSearch(searchDraft.trim()); }}>
+      <form className="inline-controls catalog-filters" onSubmit={event => { event.preventDefault(); setPage(1); setSearch(searchDraft.trim()); setMatricula(matriculaDraft.trim()); }}>
         <label className="field"><span>Buscar en el catálogo</span><input value={searchDraft} maxLength={80} onChange={event => setSearchDraft(event.target.value)} placeholder="Nombre, clave o estado" /></label>
+        {peopleCatalog && <label className="field"><span>Matrícula exacta</span><input type="search" maxLength={40} value={matriculaDraft} onChange={event => setMatriculaDraft(event.target.value)} placeholder="Ej. 202600123" /></label>}
         {Boolean(lookups.careers?.length) && config.fields.some(field => field.name === "career_id") && <label className="field"><span>Carrera</span><select value={careerFilter} onChange={event => { setPage(1); setCareerFilter(event.target.value); }}><option value="">Todas</option>{lookups.careers.map(item => <option key={recordId(item)} value={recordId(item)}>{String(item.name ?? item.code ?? "")}</option>)}</select></label>}
         <button className="button button-secondary">Filtrar</button>
       </form>
-      {loading ? <Skeleton variant="rows" /> : records.length === 0 ? <div className="empty-state">No hay registros para mostrar, o tu rol no tiene acceso a ellos.</div> : <div className="table-wrap"><table><thead><tr>{config.columns.map((column) => <th key={column.key}>{column.label}</th>)}{(canEdit || canDelete || canViewMembers) && <th>Acciones</th>}</tr></thead><tbody>{records.map((record, index) => <tr key={recordId(record) ?? index}>{config.columns.map((column) => <td key={column.key}>{displayCell(record, column.key)}</td>)}{(canEdit || canDelete || canViewMembers) && <td><div className="table-actions">{institutionId && resource === "groups" && canManageCatalog && recordId(record) && <Link className="button button-ghost button-small" to={`/institution?group=${encodeURIComponent(recordId(record) ?? "")}`}>Asignar tutor</Link>}{canViewMembers && <button className="button button-ghost button-small" disabled={rosterLoading} onClick={() => void viewGroup(record)}>Ver alumnos</button>}{canEdit && <button className="button button-ghost button-small" onClick={() => beginEdit(record)}>Editar</button>}{canDelete && <button className="button button-danger-ghost button-small" onClick={() => void handleDelete(record)}>Eliminar</button>}</div></td>}</tr>)}</tbody></table></div>}
+      {loading ? <Skeleton variant="rows" /> : records.length === 0 ? <div className="empty-state">No hay registros para mostrar, o tu rol no tiene acceso a ellos.</div> : <div className="table-wrap"><table><thead><tr>{config.columns.map((column) => <th key={column.key}>{column.label}</th>)}{peopleCatalog && resource !== "students" && <th>Matrícula</th>}{(canEdit || canDelete || canViewMembers) && <th>Acciones</th>}</tr></thead><tbody>{records.map((record, index) => <tr key={recordId(record) ?? index}>{config.columns.map((column) => <td key={column.key}>{resource === "students" && column.key === "student_id" && record.matricula ? String(record.matricula) : displayCell(record, column.key)}</td>)}{peopleCatalog && resource !== "students" && <td>{String(record.matricula ?? "—")}</td>}{(canEdit || canDelete || canViewMembers) && <td><div className="table-actions">{institutionId && resource === "groups" && canManageCatalog && recordId(record) && <Link className="button button-ghost button-small" to={`/institution?group=${encodeURIComponent(recordId(record) ?? "")}#asignar-rol`}>Asignar tutor</Link>}{canViewMembers && <button className="button button-ghost button-small" disabled={rosterLoading} onClick={() => void viewGroup(record)}>Ver alumnos</button>}{canEdit && <button className="button button-ghost button-small" onClick={() => beginEdit(record)}>Editar</button>}{canDelete && <button className="button button-danger-ghost button-small" onClick={() => void handleDelete(record)}>Eliminar</button>}</div></td>}</tr>)}</tbody></table></div>}
       <div className="pagination"><button className="button button-secondary button-small" disabled={page <= 1 || loading} onClick={() => setPage((value) => Math.max(1, value - 1))}>Anterior</button><span className="muted small-text">{total ? `${(page - 1) * 20 + 1}–${Math.min(page * 20, total)} de ${total}` : "0 registros"}</span><button className="button button-secondary button-small" disabled={page >= pageCount || loading} onClick={() => setPage((value) => value + 1)}>Siguiente</button></div>
     </section></div>
     {confirmationDialog}

@@ -67,7 +67,7 @@ export default function ProximityPage() {
         <form className="form-stack proximity-form" onSubmit={handleSubmit}>
           <label className="field">
             <span>ID de sesión *</span>
-            <input value={sessionId} onChange={(event) => setSessionId(event.target.value)} required />
+            <input placeholder="Identificador de la sesión" value={sessionId} onChange={(event) => setSessionId(event.target.value)} required />
           </label>
           <div className="table-actions">
             <button className="button button-secondary" type="submit" disabled={loading}>

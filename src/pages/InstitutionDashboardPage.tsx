@@ -1,6 +1,7 @@
+import { matchesMatricula } from "../utils/matricula";
 import useConfirmation from "../components/useConfirmation";
 import Skeleton from "../components/Skeleton";
-import { Building2, ChartColumn, Filter, UsersRound } from "lucide-react";
+import { Building2, ChartColumn, Filter, UserCheck, UsersRound } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import {
   approveRoleRequest,
@@ -16,8 +17,10 @@ import {
 } from "../api/institutions.api";
 import { useAuth } from "../auth/AuthContext";
 import { Link, useLocation } from "react-router-dom";
+import { usePagination } from "../components/Pagination";
 import Feedback from "../components/Feedback";
 
+type Assignment = AssignableRole | "tutor-career";
 type AssignableRole = "institution_admin" | "career_director" | "teacher" | "tutor" | "student";
 
 const roleLabels: Record<AssignableRole, string> = {
@@ -33,22 +36,26 @@ export default function InstitutionDashboardPage() {
   const { user } = useAuth();
   const { search, hash, key: routeKey } = useLocation();
   useEffect(() => {
-    if (hash === "#solicitudes-docentes") document.getElementById("solicitudes-docentes")?.scrollIntoView({ block: "start" });
+    if (hash === "#solicitudes-docentes" || hash === "#asignar-rol") document.getElementById(hash.slice(1))?.scrollIntoView({ block: "start" });
   }, [hash, routeKey]);
-  const requestedGroup = new URLSearchParams(search).get("group") ?? "";
+  const params = new URLSearchParams(search);
+  const requestedGroup = params.get("group") ?? "";
+  const requestedRequest = params.get("solicitud") ?? "";
   const institutionId = user?.active_context?.institution_id ?? user?.institution_id ?? "";
   const contextRole = user?.active_context?.role ?? user?.role;
   const director = contextRole === "career_admin" || contextRole === "career_director";
   const [memberRole, setMemberRole] = useState("student");
   const [memberCareer, setMemberCareer] = useState("");
+  const [memberMatricula, setMemberMatricula] = useState("");
   const [memberSearch, setMemberSearch] = useState("");
   const [requestSearch, setRequestSearch] = useState("");
-  const [memberPage, setMemberPage] = useState(1);
+  const [requestCareer, setRequestCareer] = useState("");
+  const [showAllRequests, setShowAllRequests] = useState("");
   const [requests, setRequests] = useState<RoleRequest[]>([]);
   const [members, setMembers] = useState<InstitutionMember[]>([]);
   const [scopes, setScopes] = useState<InstitutionScopes>({ careers: [], groups: [], classes: [] });
   const [targetId, setTargetId] = useState("");
-  const [role, setRole] = useState<AssignableRole>(director || requestedGroup ? "tutor" : "career_director");
+  const [assignment, setAssignment] = useState<Assignment>(director || requestedGroup ? "tutor" : "career_director");
   const [scopeId, setScopeId] = useState(requestedGroup);
   const [rejectReason, setRejectReason] = useState("");
   const [error, setError] = useState("");
@@ -57,7 +64,8 @@ export default function InstitutionDashboardPage() {
   const [busy, setBusy] = useState(false);
 
   const activeMembers = useMemo(() => members.filter(member => member.membership_status === "active"), [members]);
-  const scopeType = role === "institution_admin" ? "institution" : role === "tutor" ? "group" : "career";
+  const role = assignment === "tutor-career" ? "tutor" : assignment;
+  const scopeType = role === "institution_admin" ? "institution" : assignment === "tutor" ? "group" : "career";
   const availableScopes = scopeType === "group" ? scopes.groups : scopes.careers;
 
   const assignedCareer = director ? scopes.careers.find(career => career.id === (user?.active_context?.career_id ?? user?.career_id)) : undefined;
@@ -83,12 +91,20 @@ export default function InstitutionDashboardPage() {
     if (key === "student" && member.career_id === careerId) return true;
     return member.roles.some(item => (item.role === key || (key === "career_director" && item.role === "career_admin")) && scopeBelongsToCareer(item, careerId));
   }
-  const matchesText = (text: string, query: string) => text.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase());
+  function matchesText(text: string, query: string) {
+    const normalize = (value: string) => value.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLocaleLowerCase("es-MX");
+    const normalized = normalize(text);
+    return normalize(query.trim()).split(/\s+/).every(term => normalized.includes(term));
+  }
   const filteredMembers = activeMembers.filter(member => roleMatches(member, memberRole) &&
-    matchesCareer(member, memberRole, directoryCareer) && matchesText(`${member.full_name} ${member.email}`, memberSearch));
-  const filteredRequests = requests.filter(request => (!memberCareer || request.scope_id === memberCareer) &&
-    matchesText(`${request.full_name} ${request.email}`, requestSearch));
-  const memberOffset = (memberPage - 1) * 12;
+    matchesCareer(member, memberRole, directoryCareer) && matchesMatricula(member.matricula, memberMatricula) && matchesText(`${member.full_name} ${member.email}`, memberSearch));
+  const teacherRequests = requests.filter(request => request.requested_role === "teacher");
+  const focusedRequest = showAllRequests === routeKey ? "" : requestedRequest;
+  const filteredRequests = teacherRequests.filter(request => focusedRequest ? request.id === focusedRequest :
+    (!requestCareer || request.scope_id === requestCareer) && matchesText(`${request.full_name} ${request.email}`, requestSearch));
+  const requestPages = usePagination(filteredRequests, JSON.stringify([requestCareer, requestSearch, focusedRequest]));
+  const assignableMembers = scopeType === "group" ? activeMembers.filter(member => roleMatches(member, "tutor")) : activeMembers;
+  const memberPages = usePagination(filteredMembers, JSON.stringify([memberRole, directoryCareer, memberSearch, memberMatricula]));
   const indicators = memberRoles.map(item => ({ ...item, value: activeMembers.filter(member => roleMatches(member, item.id) && matchesCareer(member, item.id, directoryCareer)).length }));
   const maxIndicator = Math.max(1, ...indicators.map(item => item.value));
   const load = useCallback(async () => {
@@ -144,6 +160,7 @@ export default function InstitutionDashboardPage() {
 
   async function assignRole(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!assignableMembers.some(member => member.id === targetId)) return;
     setError("");
     setSuccess("");
     setBusy(true);
@@ -208,18 +225,31 @@ export default function InstitutionDashboardPage() {
     </div>
     <Feedback error={error} success={success} />
 
+    <section className="panel teacher-requests" id="solicitudes-docentes">
+      <div className="panel-heading"><div><h2 className="icon-heading"><UserCheck size={21} /> Solicitudes docentes</h2><p className="muted small-text">Aprobar activa el rol docente; rechazar no otorga permisos.</p></div>{!loading && <span className="pill">{teacherRequests.length} pendientes</span>}</div>
+      {focusedRequest ? <button className="button button-secondary button-small" onClick={() => { setShowAllRequests(routeKey); setRequestSearch(""); setRequestCareer(""); }}>Ver todas las solicitudes</button> : <div className="academic-filters">
+      {!director && <label className="field"><span>Carrera</span><select value={requestCareer} onChange={event => setRequestCareer(event.target.value)}><option value="">Todas las carreras</option>{scopes.careers.map(career => <option key={career.id} value={career.id}>{career.name}</option>)}</select></label>}
+      <label className="field"><span>Buscar solicitudes</span><input value={requestSearch} onChange={event => setRequestSearch(event.target.value)} placeholder="Nombre o correo" /></label></div>}
+      {loading ? <Skeleton variant="rows" /> : filteredRequests.length === 0 ? <p className="muted">No hay solicitudes pendientes para esta selección.</p> : <div className="table-wrap"><table><thead><tr><th>Profesor</th><th>Correo</th><th>Carrera</th><th>Acciones</th></tr></thead><tbody>
+        {requestPages.items.map(request => <tr key={request.id}><td>{request.full_name}</td><td>{request.email}</td><td>{scopes.careers.find(career => career.id === request.scope_id)?.name ?? "Institucional"}</td><td><div className="button-row"><button className="button button-primary" type="button" disabled={busy} onClick={() => void review(request.id, true)}>Aprobar</button><button className="button button-secondary" type="button" disabled={busy || rejectReason.trim().length < 3} onClick={() => void review(request.id, false)}>Rechazar</button></div></td></tr>)}
+      </tbody></table></div>}
+      {requestPages.controls}
+      {filteredRequests.length > 0 && <label className="field"><span>Motivo para rechazar</span><input value={rejectReason} maxLength={500} onChange={event => setRejectReason(event.target.value)} placeholder="Indica por qué no se aprueba la solicitud" /></label>}
+    </section>
+
     <div className="management-grid">
       <div className="management-main">
     <section className="panel institution-directory">
       <div className="panel-heading"><h2 className="icon-heading"><UsersRound size={21} /> Directorio</h2>{!loading && <span className="pill">{filteredMembers.length} resultados</span>}</div>
       <div className="role-tabs" role="group" aria-label="Tipo de integrante">{memberRoles.map(item => <button key={item.id} className={`role-tab ${item.id === memberRole ? "selected" : ""}`} aria-pressed={item.id === memberRole}
-        onClick={() => { setMemberRole(item.id); setMemberPage(1); if (item.id === "institution_admin") setMemberCareer(""); }}>{item.label}</button>)}</div>
+        onClick={() => { setMemberRole(item.id); if (item.id === "institution_admin") setMemberCareer(""); }}>{item.label}</button>)}</div>
       <div className="academic-filters">
-        {!director && memberRole !== "institution_admin" && <label className="field"><span><Filter size={15} /> Carrera</span><select value={directoryCareer} onChange={event => { setMemberCareer(event.target.value); setMemberPage(1); }}>{!scopes.careers.length && <option value="">Sin carreras registradas</option>}{scopes.careers.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>}
-        <label className="field"><span>Buscar</span><input value={memberSearch} onChange={event => { setMemberSearch(event.target.value); setMemberPage(1); }} placeholder="Nombre o correo" /></label>
+        {!director && memberRole !== "institution_admin" && <label className="field"><span><Filter size={15} /> Carrera</span><select value={directoryCareer} onChange={event => { setMemberCareer(event.target.value); }}>{!scopes.careers.length && <option value="">Sin carreras registradas</option>}{scopes.careers.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>}
+        <label className="field"><span>Buscar</span><input value={memberSearch} onChange={event => { setMemberSearch(event.target.value); }} placeholder="Nombre o correo" /></label>
+        <label className="field"><span>Matrícula exacta</span><input type="search" maxLength={40} value={memberMatricula} onChange={event => setMemberMatricula(event.target.value)} placeholder="Ej. 202600123" /></label>
       </div>
       {loading ? <Skeleton label="Cargando miembros" /> : filteredMembers.length ? <div className="table-wrap"><table><thead><tr><th>Persona</th><th>Asignaciones</th></tr></thead><tbody>
-        {filteredMembers.slice(memberOffset, memberOffset + 12).map(member => <tr key={member.id}><td><strong>{member.full_name}</strong><small className="request-reason">{member.email}</small></td>
+        {memberPages.items.map(member => <tr key={member.id}><td><strong>{member.full_name}</strong><small className="request-reason">{member.email}</small>{member.matricula && <small className="request-reason">Matrícula {member.matricula}</small>}</td>
           <td>{member.roles.filter(item => (item.role === memberRole || (memberRole === "career_director" && item.role === "career_admin") || (memberRole === "institution_admin" && item.role === "institution_owner")) && scopeBelongsToCareer(item, directoryCareer)).map(item =>
             <div key={`${item.role}-${item.scope_id ?? "institution"}`} className="table-actions">
               <span>{item.scope_id ? scopeNames.get(item.scope_id) ?? "Alcance asignado" : "Institución"}</span>
@@ -228,16 +258,9 @@ export default function InstitutionDashboardPage() {
             {memberRole === "student" && member.career_id && (!directoryCareer || directoryCareer === member.career_id) && <span>{scopeNames.get(member.career_id) ?? "Carrera asignada"}</span>}
           </td></tr>)}
       </tbody></table></div> : <p className="empty-state">Sin personas para estos filtros.</p>}
-      {filteredMembers.length > 12 && <div className="pagination"><button className="button button-secondary button-small" disabled={memberPage === 1} onClick={() => setMemberPage(p => p - 1)}>Anterior</button><span>{memberPage} de {Math.ceil(filteredMembers.length / 12)}</span><button className="button button-secondary button-small" disabled={memberOffset + 12 >= filteredMembers.length} onClick={() => setMemberPage(p => p + 1)}>Siguiente</button></div>}
+      {!loading && memberPages.controls}
     </section>
-    <section className="panel" id="solicitudes-docentes">
-      <div className="panel-heading"><div><h2>Solicitudes docentes</h2><p className="muted small-text">Aprobar activa el rol docente; rechazar no otorga permisos.</p></div></div>
-      <label className="field"><span>Buscar solicitudes</span><input value={requestSearch} onChange={event => setRequestSearch(event.target.value)} placeholder="Nombre o correo" /></label>
-      {loading ? <Skeleton variant="rows" /> : filteredRequests.length === 0 ? <p className="muted">No hay solicitudes pendientes.</p> : <div className="table-wrap"><table><thead><tr><th>Profesor</th><th>Correo</th><th>Carrera</th><th>Acciones</th></tr></thead><tbody>
-        {filteredRequests.map(request => <tr key={request.id}><td>{request.full_name}</td><td>{request.email}</td><td>{scopes.careers.find(career => career.id === request.scope_id)?.name ?? "Institucional"}</td><td><div className="button-row"><button className="button button-primary" type="button" disabled={busy} onClick={() => void review(request.id, true)}>Aprobar</button><button className="button button-secondary" type="button" disabled={busy || rejectReason.trim().length < 3} onClick={() => void review(request.id, false)}>Rechazar</button></div></td></tr>)}
-      </tbody></table></div>}
-      {filteredRequests.length > 0 && <label className="field"><span>Motivo para rechazar</span><input value={rejectReason} maxLength={500} onChange={event => setRejectReason(event.target.value)} placeholder="Indica por qué no se aprueba la solicitud" /></label>}
-    </section>
+
 
       </div>
       <aside className="management-side">
@@ -247,8 +270,8 @@ export default function InstitutionDashboardPage() {
     <section className="panel" id="asignar-rol">
       <div className="panel-heading"><div><h2>Asignar rol</h2><p className="muted small-text">Solo puedes asignarlo a un miembro activo de esta institución.</p></div></div>
       {loading ? <Skeleton variant="field" label="Cargando miembros y asignaciones" /> : <form className="form-stack account-form" onSubmit={assignRole}>
-        <label className="field"><span>Miembro</span><select required value={targetId} onChange={event => setTargetId(event.target.value)}><option value="">Selecciona una cuenta</option>{activeMembers.map(member => <option key={member.id} value={member.id}>{member.full_name} · {member.email}</option>)}</select></label>
-        <label className="field"><span>Rol</span><select value={role} onChange={event => { setRole(event.target.value as AssignableRole); setScopeId(""); }}>{!director && <option value="career_director">Director de carrera</option>}<option value="teacher">Profesor</option><option value="tutor">Tutor</option><option value="student">Alumno</option>{contextRole === "institution_owner" && <option value="institution_admin">Administrador institucional</option>}</select></label>
+        <label className="field"><span>Miembro</span><select required value={targetId} onChange={event => setTargetId(event.target.value)}><option value="">{scopeType === "group" && !assignableMembers.length ? "Sin cuentas con rol de tutor" : "Selecciona una cuenta"}</option>{assignableMembers.map(member => <option key={member.id} value={member.id}>{member.full_name} · {member.email}</option>)}</select></label>
+        <label className="field"><span>Rol</span><select value={assignment} onChange={event => { setAssignment(event.target.value as Assignment); setTargetId(""); setScopeId(""); }}>{!director && <option value="career_director">Director de carrera</option>}<option value="teacher">Profesor</option><option value="tutor">Asignar tutor a un grupo</option><option value="tutor-career">Otorgar rol de tutor en una carrera</option><option value="student">Alumno</option>{contextRole === "institution_owner" && <option value="institution_admin">Administrador institucional</option>}</select></label>
         {scopeType !== "institution" && <label className="field"><span>{scopeType === "group" ? "Grupo asignado" : "Carrera asignada"}</span><select required disabled={director && scopeType === "career"} value={effectiveScopeId} onChange={event => setScopeId(event.target.value)}><option value="">Selecciona un alcance</option>{availableScopes.map(scope => <option key={scope.id} value={scope.id}>{scope.name}{scope.code ? ` (${scope.code})` : ""}</option>)}</select></label>}
         <button className="button button-primary" disabled={busy || loading || !targetId || (scopeType !== "institution" && !availableScopes.some(scope => scope.id === effectiveScopeId))}>{busy ? "Guardando…" : "Asignar rol"}</button>
       </form>}
