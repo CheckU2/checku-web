@@ -328,6 +328,17 @@ body:has(.checku-modal-backdrop) { overflow: hidden; }
 .justification-workspace:has(.justification-compose) .justification-inbox { grid-column: 2; grid-row: 1; }
 .justification-compose { grid-column: 1; grid-row: 1; }
 .justification-workspace:not(:has(.justification-compose)) { grid-template-columns: minmax(0,1fr); }
+.justification-session-filters { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(140px, 100%), 1fr)); gap: 8px; align-items: end; margin-bottom: 12px; }
+.justification-session-picker { display: grid; gap: 5px; min-width: 0; margin: 0; padding: 0; border: 0; }
+.justification-session-picker legend { font-weight: 700; margin-bottom: 5px; }
+.justification-session-choice { display: flex; align-items: start; gap: 8px; padding: 7px 9px; border: 1px solid var(--line); border-radius: 10px; cursor: pointer; }
+.justification-session-choice:has(input:checked) { background: var(--primary-soft); border-color: var(--primary); }
+.justification-session-choice input { accent-color: var(--primary); }
+.justification-session-choice small { display: block; color: var(--muted); }
+.justification-detail { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(150px, 100%), 1fr)); gap: 8px; }
+.justification-detail div { padding: 8px; border-radius: 10px; background: var(--primary-soft); }
+.justification-detail dt { color: var(--muted); font-size: .8rem; }
+.justification-detail dd { margin: 2px 0 0; font-weight: 650; }
 .justification-compose .message-thread { border: 1px solid var(--line); border-radius: 19px; background: var(--surface-soft); padding: 10px; }
 .justification-compose .message-bubble { background: white; }
 .request-reason { display: block; color: var(--muted); font-size: .82rem; overflow-wrap: anywhere; margin-top: 4px; }
@@ -350,13 +361,23 @@ body:has(.checku-modal-backdrop) { overflow: hidden; }
 .heat-wrap { max-width: 100%; }
 .heat-table caption { padding: 8px; text-align: left; color: var(--muted); }
 .heat-wrap .heat-table :is(th,td) { padding: 6px; text-align: center; white-space: nowrap; }
-.heat-cell { min-width: 35px; display: inline-grid; place-items: center; border-radius: 8px; min-height: 31px; font-weight: 750; background: #f4f1fa; color: #473d5f; }
-.heat-none { background: transparent; color: var(--muted); }
-.heat-0 { background: #dbefe4; color: #28513f; }
-.heat-1 { background: #f6e6f1; color: #743552; }
-.heat-2 { background: #eebed9; color: #612b48; }
-.heat-3 { background: #b86089; color: #1d0e18; }
-.heat-4 { background: #7d2c55; color: #fff; }
+.heat-cell { width: 100%; min-width: 32px; display: block; border-radius: 6px; height: 30px; }
+button.heat-cell { border: 1px solid transparent; cursor: pointer; }
+button.heat-cell:is(:hover, :focus-visible, [aria-pressed="true"]) { outline: 2px solid #503365; outline-offset: 1px; }
+.heat-none { background: repeating-linear-gradient(135deg, #f1eff5 0 4px, #faf9fc 4px 8px); }
+.heat-0 { background: #f3e9f7; }
+.heat-1 { background: #dfbce8; }
+.heat-2 { background: #bf81d1; }
+.heat-3 { background: #9551ac; }
+.heat-4 { background: #613274; }
+.heat-legend, .outcome-legend { display: flex; flex-wrap: wrap; gap: 8px 16px; padding: 0; list-style: none; font-size: .8125rem; }
+.heat-legend li, .outcome-legend li { display: flex; align-items: center; gap: 6px; }
+.heat-legend .heat-cell, .outcome-swatch { width: 13px; min-width: 13px; height: 13px; border-radius: 3px; }
+.outcome-chart { display: flex; min-height: 22px; border-radius: 8px; overflow: hidden; margin-top: 16px; }
+.outcome-legend { margin-bottom: 0; }
+.teacher-requests { border-top: 3px solid #8462b5; scroll-margin-top: 96px; }
+.teacher-requests > .field { margin-top: 12px; }
+#asignar-rol { scroll-margin-top: 96px; }
 
 .profile-page-heading h1 { margin: 0 0 4px; font: 800 clamp(1.9rem,4vw,2.85rem)/1.1 Manrope,system-ui,sans-serif; letter-spacing: -.06em; }
 .profile-page-heading p { margin: 0; }
@@ -570,6 +591,9 @@ input[type=checkbox], input[type=radio] { appearance: auto; accent-color: var(--
 .container-transform > .checku-modal-backdrop > .checku-modal { animation: none; }
 .container-transform > .checku-modal-backdrop > .checku-modal { transform-origin: center; }
 .container-transform[inert] > .checku-modal-backdrop { pointer-events: none; }
+@media (max-width: 650px), (pointer: coarse) {
+  .container-transform > .checku-modal-backdrop { backdrop-filter: none; }
+}
 
 @media (prefers-reduced-motion: no-preference) {
   .branch-inner {

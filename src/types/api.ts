@@ -23,6 +23,7 @@ export interface AuthContext {
 }
 
 export interface AuthUser {
+  matricula?: string | null;
   id?: string;
   _id?: string;
   full_name?: string;

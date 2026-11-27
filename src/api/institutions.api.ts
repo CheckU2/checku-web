@@ -5,6 +5,7 @@ export interface Institution { id: string; name: string; slug: string; timezone?
 export interface InstitutionCareer { id: string; name: string; code?: string | null; }
 export interface RoleAssignment { institution_id: string; user_id: string; role: string; scope_type: string; scope_id: string | null; }
 export interface InstitutionMember {
+  matricula?: string | null;
   id: string;
   full_name: string;
   email: string;

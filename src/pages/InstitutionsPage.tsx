@@ -74,7 +74,7 @@ export default function InstitutionsPage() {
       <h2>Crear institución</h2>
       <p className="muted">La institución queda activa inmediatamente. No se asigna una cuenta compartida ni una contraseña institucional.</p>
       <form className="form-stack account-form" onSubmit={create}>
-        <label className="field"><span>Nombre</span><input name="organization" autoComplete="organization" required minLength={3} maxLength={150} value={name} onChange={event => setName(event.target.value)} /></label>
+        <label className="field"><span>Nombre</span><input placeholder="Ej. Universidad del Valle" name="organization" autoComplete="organization" required minLength={3} maxLength={150} value={name} onChange={event => setName(event.target.value)} /></label>
         <label className="field"><span>Identificador</span><input required pattern="[a-z0-9]+(-[a-z0-9]+)*" value={slug} onChange={event => setSlug(event.target.value)} placeholder="universidad-ejemplo" /></label>
         <label className="field"><span>Periodo académico</span><select value={period} onChange={event => setPeriod(event.target.value as "quarter" | "semester")}><option value="quarter">Cuatrimestre</option><option value="semester">Semestre</option></select></label>
         <button className="button button-primary" disabled={busy}>{busy ? "Creando…" : "Crear institución"}</button>
@@ -85,9 +85,9 @@ export default function InstitutionsPage() {
       <h2>Asignar propietario institucional</h2>
       <p className="muted">El propietario será el administrador principal de esta institución, no un superadministrador de CheckU.</p>
       <form className="form-stack account-form" onSubmit={assignOwner}>
-        <label className="field"><span>ID de institución</span><input required value={institutionId} onChange={event => setInstitutionId(event.target.value.trim())} /></label>
-        <label className="field"><span>Correo personal del propietario</span><input required name="email" type="email" autoComplete="section-owner email" value={ownerEmail} onChange={event => setOwnerEmail(event.target.value)} /></label>
-        <label className="field"><span>Nombre (solo para crear una cuenta nueva)</span><input name="full_name" autoComplete="section-owner name" minLength={2} maxLength={120} value={ownerName} onChange={event => setOwnerName(event.target.value)} /></label>
+        <label className="field"><span>ID de institución</span><input placeholder="Identificador de la institución" required value={institutionId} onChange={event => setInstitutionId(event.target.value.trim())} /></label>
+        <label className="field"><span>Correo personal del propietario</span><input placeholder="nombre@correo.com" required name="email" type="email" autoComplete="section-owner email" value={ownerEmail} onChange={event => setOwnerEmail(event.target.value)} /></label>
+        <label className="field"><span>Nombre (solo para crear una cuenta nueva)</span><input placeholder="Ej. Ana García" name="full_name" autoComplete="section-owner name" minLength={2} maxLength={120} value={ownerName} onChange={event => setOwnerName(event.target.value)} /></label>
         <PasswordField label="Contraseña inicial (solo para crear una cuenta nueva)" name="password" policy autoComplete="section-owner new-password" value={ownerPassword} onChange={event => setOwnerPassword(event.target.value)} />
         <p className="muted small-text">Si el correo ya tiene cuenta, se vincula sin cambiar su contraseña. Para una cuenta nueva, captura nombre y contraseña.</p>
         <button className="button button-primary" disabled={busy || !institutionId || Boolean(ownerPassword && !isNewPasswordValid(ownerPassword))}>{busy ? "Asignando…" : "Asignar propietario"}</button>

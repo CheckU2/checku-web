@@ -40,6 +40,7 @@ export default function ContainerTransform({ children, fallbackTrigger }: { chil
   const animations = useRef<Animation[]>([]);
   const [retained, setRetained] = useState<ReactNode>(null);
   const open = Boolean(children);
+  const rendered = Boolean(children || retained);
 
   useLayoutEffect(() => {
     if (children) setRetained(children);
@@ -47,7 +48,12 @@ export default function ContainerTransform({ children, fallbackTrigger }: { chil
 
   useLayoutEffect(() => {
     const surface = host.current?.firstElementChild;
-    if (!(surface instanceof HTMLElement)) return;
+    const previous = animations.current;
+    if (!(surface instanceof HTMLElement)) {
+      previous.forEach(animation => animation.cancel());
+      animations.current = [];
+      return;
+    }
     const panel = surface.querySelector<HTMLElement>(":scope > .checku-modal") ?? surface;
     const overlay = surface !== panel;
     const fallback = fallbackTrigger ? document.querySelector<HTMLElement>(fallbackTrigger) : null;
@@ -55,10 +61,10 @@ export default function ContainerTransform({ children, fallbackTrigger }: { chil
       if (pendingTrigger && performance.now() - pendingTrigger.time < 1500) trigger.current = pendingTrigger;
       pendingTrigger = undefined;
     }
-    const current = getComputedStyle(panel);
-    const from = { transform: current.transform, opacity: current.opacity, borderRadius: current.borderRadius };
-    const overlayOpacity = getComputedStyle(surface).opacity;
-    animations.current.forEach(animation => animation.cancel());
+    const current = !open || previous.length ? getComputedStyle(panel) : null;
+    const from = current && { transform: current.transform, opacity: current.opacity, borderRadius: current.borderRadius };
+    const overlayOpacity = overlay && current ? getComputedStyle(surface).opacity : 0;
+    previous.forEach(animation => animation.cancel());
     animations.current = [];
 
     function finishClose() {
@@ -74,22 +80,31 @@ export default function ContainerTransform({ children, fallbackTrigger }: { chil
       return;
     }
 
-    const collapsed = collapsedFrame(panel, trigger.current, fallback, open);
+    const compact = matchMedia("(max-width: 650px), (pointer: coarse)").matches;
+    const collapsed = compact
+      ? { transform: "translateY(6px) scale(.98)", opacity: 0 }
+      : collapsedFrame(panel, trigger.current, fallback, open);
     const expanded = { transform: "none", opacity: 1, borderRadius: getComputedStyle(panel).borderRadius };
     const options: KeyframeAnimationOptions = {
-      duration: open ? 340 : 230,
-      easing: open ? "cubic-bezier(.2,.75,.2,1)" : "cubic-bezier(.4,0,.65,1)",
+      duration: open ? (compact ? 155 : 210) : (compact ? 115 : 150),
+      easing: open ? "cubic-bezier(.2,.75,.2,1)" : "ease-in",
       fill: "both",
     };
-    const motion = panel.animate(open ? [collapsed, expanded] : [from, collapsed], options);
-    animations.current = [motion];
-    if (overlay) animations.current.push(surface.animate(open ? [{ opacity: 0 }, { opacity: 1 }] : [{ opacity: overlayOpacity }, { opacity: 0 }], options));
+    const motion = panel.animate(open ? [from ?? collapsed, expanded] : [from ?? expanded, { ...collapsed, opacity: 0 }], options);
+    const running = [motion];
+    if (overlay) running.push(surface.animate([{ opacity: overlayOpacity }, { opacity: open ? 1 : 0 }], options));
+    animations.current = running;
     void motion.finished.then(() => {
-      if (!open) finishClose();
-      animations.current.forEach(animation => animation.cancel());
+      if (animations.current !== running) return;
+      if (!open) {
+        // Keep the final frame applied until React removes the retained surface.
+        finishClose();
+        return;
+      }
+      running.forEach(animation => animation.cancel());
       animations.current = [];
     }).catch(() => undefined);
-  }, [open, fallbackTrigger]);
+  }, [open, rendered, fallbackTrigger]);
 
   useLayoutEffect(() => () => animations.current.forEach(animation => animation.cancel()), []);
 

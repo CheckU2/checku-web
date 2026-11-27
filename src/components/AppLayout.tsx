@@ -8,10 +8,12 @@ import type { AuthContext } from "../types/api";
 import Feedback from "./Feedback";
 import UserAvatar from "./UserAvatar";
 import NotificationsPanel, { useWorkspaceNotifications } from "./NotificationsPanel";
+import { StudentNavigation, StudentNavigationContext, useStudentNavigationPreferences, useStudentTabViewport } from "./StudentNavigation";
 import WorkspaceSwitcher, { workspaceKey } from "./WorkspaceSwitcher";
 
 type NavItem = { to: string; label: string; icon: LucideIcon; roles?: string[]; institutional?: boolean };
 type NavGroup = { title: string; icon: LucideIcon; items: NavItem[] };
+export type AccountActions = { inProfile: boolean; loggingOut: boolean; signOut: () => Promise<void> };
 const groups: NavGroup[] = [
   { title: "Académico", icon: GraduationCap, items: [
     {to:"/classes",label:"Clases",icon:BookOpen},
@@ -23,7 +25,7 @@ const groups: NavGroup[] = [
     {to:"/subjects",label:"Materias",icon:BookMarked,roles:["teacher","career_admin","admin","super_admin","institution_owner","institution_admin"]},
   ]},
   { title: "Gestión", icon: Layers3, items: [
-    {to:"/justifications",label:"Justificantes",icon:FileCheck2,roles:["tutor","teacher","career_admin","admin","super_admin"]},
+    {to:"/justifications",label:"Justificantes",icon:FileCheck2,roles:["student","tutor","teacher","career_admin","admin","super_admin"]},
     {to:"/teachers",label:"Docentes",icon:Users,roles:["career_admin","admin","super_admin"]},
     {to:"/tutors",label:"Tutores",icon:Users,roles:["career_admin","admin","super_admin"]},
     {to:"/enrollments",label:"Inscripciones",icon:ClipboardList,roles:["career_admin","admin","super_admin"]},
@@ -51,25 +53,30 @@ export default function AppLayout() {
  const [workspaceError, setWorkspaceError] = useState("");
  const menuButton = useRef<HTMLButtonElement>(null);
  const role=activeRole(user);
+ const student = role === "student";
+ const compactViewport = useStudentTabViewport();
+ const showStudentTabs = student && compactViewport;
+ const studentNavigation = useStudentNavigationPreferences(user?.id ?? user?._id);
  const permissionRole=role==="career_director"?"career_admin":role;
  const contexts = user?.contexts ?? [];
  const currentWorkspace = workspaceKey(user?.active_context);
  const contextKey = JSON.stringify([user?.id, role, currentWorkspace]);
  const reviewJustifications = canAccessInstitutionRoute(user, "/justifications") &&
-   ["teacher", "tutor", "career_admin", "career_director", "admin", "super_admin"].includes(role);
+   ["tutor", "career_admin", "career_director", "admin", "super_admin"].includes(role);
  const reviewInstitution = canAccessInstitutionRoute(user, "/institution") &&
    ["institution_owner", "institution_admin", "career_admin", "career_director"].includes(role);
  const institutionId = reviewInstitution ? user?.active_context?.institution_id ?? user?.institution_id ?? "" : "";
  const notificationFeed = useWorkspaceNotifications(contextKey, reviewJustifications, institutionId);
  const pending = notificationFeed.pending;
  useEffect(() => {
+   if (showStudentTabs) { setMenuOpen(false); return; }
    if (!menuOpen) return;
    const onKey = (event: KeyboardEvent) => {
      if (event.key === "Escape" && !event.defaultPrevented) { setMenuOpen(false); menuButton.current?.focus(); }
    };
    window.addEventListener("keydown", onKey);
    return () => window.removeEventListener("keydown", onKey);
- }, [menuOpen]);
+ }, [menuOpen, showStudentTabs]);
  const available=groups.map(group=>({...group,items:group.items.filter(item=>
    canAccessInstitutionRoute(user,item.to)&&
    (!item.institutional||hasInstitution(user))&&
@@ -98,9 +105,12 @@ export default function AppLayout() {
    }
  }
  async function handleLogout(){setLoggingOut(true);try{await signOut();}finally{setLoggingOut(false);navigate('/login',{replace:true});}}
+ const notifications = <NotificationsPanel key={contextKey} feed={notificationFeed} verifyEmail={user?.email_verified === false}
+   missingMatricula={Boolean(user && !user.matricula?.trim())} waitingApproval={Boolean(user && homeForUser(user) === "/pending-approval")} />;
+ const profileAvatar = (size: number) => <UserAvatar name={user?.full_name || user?.email || "Usuario"} userId={user?.id ?? user?._id} avatar={user?.avatar || user?.avatar_url} size={size} />;
  const accent = user?.banner_color && /^#[0-9a-f]{6}$/i.test(user.banner_color) ? user.banner_color : null;
- return <div className={`app-shell checku-shell ${accent ? "personal-theme" : ""}`} style={accent ? { "--user-accent": accent } as CSSProperties : undefined}>
-   <aside id="app-navigation" className={`sidebar checku-sidebar ${menuOpen?'sidebar-open':''}`}>
+ return <StudentNavigationContext.Provider value={student ? studentNavigation : null}><div className={`app-shell checku-shell ${accent ? "personal-theme" : ""} ${showStudentTabs ? "student-shell" : ""}`} data-student-nav={showStudentTabs ? studentNavigation.preferences.position : undefined} style={accent ? { "--user-accent": accent } as CSSProperties : undefined}>
+   {!showStudentTabs && <aside id="app-navigation" className={`sidebar checku-sidebar ${menuOpen?'sidebar-open':''}`}>
      <div className="sidebar-brand-row"><NavLink className="brand checku-brand" to={user ? homeForUser(user) : "/"} onClick={()=>setMenuOpen(false)}><img className="brand-logo" src="/icon.png" alt=""/><span>Check<span className="brand-accent">U</span></span></NavLink><button className="sidebar-close icon-button" aria-label="Cerrar menú" onClick={()=>setMenuOpen(false)}><X size={19}/></button></div>
      {contexts.length > 1 && <WorkspaceSwitcher contexts={contexts} selected={currentWorkspace} roleLabels={roleLabels}
        busy={switchingWorkspace} error={workspaceError} onSelect={switchWorkspace} />}
@@ -120,30 +130,34 @@ export default function AppLayout() {
        </NavLink>
        <NavLink to="/account?editar=1" onClick={() => setMenuOpen(false)} className="header-action" aria-label="Editar perfil" title="Editar perfil"><Settings size={17} /></NavLink>
      </div>
-   </aside>
-   {menuOpen&&<button className="sidebar-backdrop" aria-label="Cerrar menú" onClick={()=>setMenuOpen(false)}/>}
+   </aside>}
+   {!showStudentTabs && menuOpen&&<button className="sidebar-backdrop" aria-label="Cerrar menú" onClick={()=>setMenuOpen(false)}/>}
    <div className="main-column">
      <header className="topbar checku-topbar">
        <div className="topbar-left">
-         <button ref={menuButton} className="mobile-menu-button" aria-controls="app-navigation" aria-expanded={menuOpen} onClick={() => setMenuOpen(open => !open)} aria-label="Abrir menú"><Menu size={21} /></button>
+         {!showStudentTabs && <button ref={menuButton} className="mobile-menu-button" aria-controls="app-navigation" aria-expanded={menuOpen} onClick={() => setMenuOpen(open => !open)} aria-label="Abrir menú"><Menu size={21} /></button>}
          <div className="topbar-breadcrumb"><NavLink to={user ? homeForUser(user) : "/"}>CheckU</NavLink><ChevronRight size={14} aria-hidden="true" /><strong>{pageTitle}</strong></div>
        </div>
        <div className="user-menu">
-         <NotificationsPanel key={contextKey} feed={notificationFeed} verifyEmail={user?.email_verified === false}
-           waitingApproval={Boolean(user && homeForUser(user) === "/pending-approval")} />
-         <NavLink to="/account" className="header-profile" aria-label="Mi perfil">
-           <UserAvatar name={user?.full_name || user?.email || "Usuario"} userId={user?.id ?? user?._id} avatar={user?.avatar || user?.avatar_url} size={36} />
-           <span className="user-details"><strong>{user?.full_name || user?.email}</strong><span>{roleLabels[role] ?? "Usuario"}</span></span>
-         </NavLink>
-         <NavLink className="header-action" to="/account?editar=1" title="Editar perfil" aria-label="Editar perfil"><Settings size={18} /></NavLink>
-         <button className="header-action" onClick={() => void handleLogout()} disabled={loggingOut} title="Cerrar sesión" aria-label="Cerrar sesión"><LogOut size={18} /></button>
+         {showStudentTabs && contexts.length > 1 && <WorkspaceSwitcher contexts={contexts} selected={currentWorkspace} roleLabels={roleLabels} busy={switchingWorkspace} error={workspaceError} onSelect={switchWorkspace} />}
+         {!showStudentTabs && <>
+           {notifications}
+           <NavLink to="/account" className="header-profile" aria-label="Mi perfil">
+             {profileAvatar(36)}
+             <span className="user-details"><strong>{user?.full_name || user?.email}</strong><span>{roleLabels[role] ?? "Usuario"}</span></span>
+           </NavLink>
+           <NavLink className="header-action" to={student ? "/account#navegacion" : "/account?editar=1"} title={student ? "Configuración" : "Editar perfil"} aria-label={student ? "Configuración" : "Editar perfil"}><Settings size={18} /></NavLink>
+           <button className="header-action" onClick={() => void handleLogout()} disabled={loggingOut} title="Cerrar sesión" aria-label="Cerrar sesión"><LogOut size={18} /></button>
+         </>}
        </div>
      </header>
+     {showStudentTabs && <StudentNavigation preferences={studentNavigation.preferences} notifications={notifications}
+       avatar={user?.avatar || user?.avatar_url ? profileAvatar(38) : <UserRound size={22} strokeWidth={1.75} aria-hidden="true" />} />}
      <main className="page-content checku-page">{user?.email_verified === false && location.pathname !== "/account" && (
        <div className="account-email-notice">
          <Feedback title="Correo pendiente de verificar" warning="Confirma tu dirección de correo para completar la verificación." actions={<NavLink to="/account#correo">Verificar correo</NavLink>} />
        </div>
-     )}<Outlet key={contextKey} /></main>
+     )}<Outlet key={contextKey} context={{ inProfile: showStudentTabs, loggingOut, signOut: handleLogout } satisfies AccountActions} /></main>
    </div>
- </div>;
+ </div></StudentNavigationContext.Provider>;
 }

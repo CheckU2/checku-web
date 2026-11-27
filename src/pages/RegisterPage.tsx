@@ -216,7 +216,7 @@ export default function RegisterPage() {
                 <form className="form-stack" onSubmit={handleVerify}>
                   <label className="field">
                     <span>Código de verificación</span>
-                    <input type="text" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} value={code} onChange={event => setCode(event.target.value.replace(/[^0-9]/g, ""))} autoFocus required />
+                    <input placeholder="000000" type="text" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} value={code} onChange={event => setCode(event.target.value.replace(/[^0-9]/g, ""))} autoFocus required />
                   </label>
                   <VerificationCountdown {...countdown} />
                   <Feedback error={error} info={resendMessage} />

@@ -16,7 +16,7 @@ export function canAccessInstitutionRoute(user: AuthUser | null | undefined, pat
   if (!hasInstitution(user)) {
     if (role === "teacher") return ["/dashboard", "/classes", "/sessions", "/justifications", "/reports", "/account"].includes(path);
     if (role === "tutor") return ["/dashboard", "/classes", "/groups", "/sessions", "/justifications", "/reports", "/account"].includes(path);
-    if (role === "student") return ["/dashboard", "/classes", "/attendance", "/account"].includes(path);
+    if (role === "student") return ["/dashboard", "/classes", "/attendance", "/justifications", "/account"].includes(path);
     return true;
   }
   if (["/account", "/pending-approval"].includes(path)) return true;
@@ -30,7 +30,7 @@ export function canAccessInstitutionRoute(user: AuthUser | null | undefined, pat
     case "teacher":
       return ["/dashboard", "/classes", "/sessions", "/justifications", "/reports"].includes(path);
     case "student":
-      return ["/dashboard", "/classes", "/attendance"].includes(path);
+      return ["/dashboard", "/classes", "/attendance", "/justifications"].includes(path);
     case "tutor":
       return ["/classes", "/groups", "/justifications", "/reports"].includes(path);
     default:

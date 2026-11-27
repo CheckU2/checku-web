@@ -26,7 +26,7 @@ function CodeForm({ busy, deadlines, onConfirm, onRestart, action }: {
     }}>
       <label className="field">
         <span>Código de seis dígitos</span>
-        <input inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6}
+        <input placeholder="000000" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6}
           value={code} onChange={event => setCode(event.target.value.replace(/[^0-9]/g, ""))} required />
       </label>
       <VerificationCountdown {...countdown} />
@@ -103,7 +103,7 @@ export function AccountEmail({ currentEmail, verified, editing, onClose }: {
       </> : (verified !== true || editing) && <>
         <p className="muted">Escribe tu contraseña actual para solicitar un código. Si eliges otro correo, se guardará cuando confirmes el código que llegue a esa dirección.</p>
         <form className="form-stack" onSubmit={request}>
-          <label className="field"><span>Correo que quieres verificar</span><input name="email" type="email" autoComplete="email" value={email}
+          <label className="field"><span>Correo que quieres verificar</span><input placeholder="nombre@correo.com" name="email" type="email" autoComplete="email" value={email}
             onChange={event => setEmail(event.target.value)} disabled={busy} required /></label>
           <PasswordField label="Contraseña actual" name="current_password" autoComplete="current-password" value={password}
             onChange={event => setPassword(event.target.value)} maxLength={128} disabled={busy} required />

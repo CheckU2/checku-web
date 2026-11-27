@@ -26,6 +26,7 @@ export default function PasswordField({ id, label, matches, policy, ...inputProp
       <div className="password-control">
         <input
           {...inputProps}
+          placeholder={inputProps.placeholder ?? (hasIndicator ? "Repite tu contraseña" : "Introduce tu contraseña")}
           id={inputId}
           type={visible ? "text" : "password"}
           aria-describedby={descriptions || undefined}
